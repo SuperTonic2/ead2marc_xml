@@ -2,22 +2,21 @@
 
 ## Current Sprint
 
-- [ ] Check 300 field syntax with L (specifically subfield f)
-- [ ] Check 041 field syntax with L (specifically subfield 2)
-- [ ] Check 546 field syntax with L (specifically whether to use v1 or v2)
-- [ ] Ask L if IU Libraries leader already exists in MARC/XML
-
-- [ ] Write 655
-- [ ] Write 690
 - [ ] Write 500
 - [ ] Write 020
 - [ ] Write 028
+- [ ] Move physdesc notes from 300 to 5xx
+        See aspace_784a34c3013035deb6e33ad4f9c5934f for example
 - [ ] Write other relevant identifer fields
 - [ ] Write more to-do’s (address TODOs in notebook??)
+- [ ] Make leader
 - [ ] Add back in marc: namespace prefixes at end of conversion
         re.sub(r'<([A-Za-z0-9_:-]+)(\s|>)', r'<marc:\1\2', authority_100_110_str)
         re.sub(r'</([A-Za-z0-9_:-]+)>', r'</marc:\1>', authority_100_110_str)
 - [ ] Add in looping logic from attrib_loopbox
+- [ ] Create fallbacks for common errors
+        Retrying authority file fetches from lccn.loc.gov if first attempt fails
+        Moving to non-authority name treatments if fetching from authority file fails multiple times
 
 ## Backlog
 
@@ -44,5 +43,17 @@
 - [X] Write 300
 - [X] Write 041
 - [X] Write 546
+- [X] Check 300 field syntax with L (specifically subfield f)
+- [X] Check 041 field syntax with L (specifically subfield 2)
+- [X] Check 546 field syntax with L (specifically whether to use v1 or v2) (use v1)
+- [X] Ask L if IU Libraries leader already exists in MARC/XML
+- [X] Write 655
+- [X] Add looping and xml_list logic from 655 to repeatable fields
+        700
+        710
+        264
+        300
+        546
+- [X] Write 690
 
 ## Review Notes
