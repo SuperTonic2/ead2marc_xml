@@ -2,12 +2,23 @@
 
 ## Current Sprint
 
-- [ ] Write 500
+- [ ] Write 524
+- [ ] Write 535
+- [ ] Write 540
+- [ ] Write 541
+- [ ] Write 544
+- [ ] Write 545
+- [ ] Write 555
+- [ ] Write 561
+- [ ] Write 583
+- [ ] Write 584
+- [ ] Write 520
 - [ ] Write 020
 - [ ] Write 028
 - [ ] Move physdesc notes from 300 to 5xx
         See aspace_784a34c3013035deb6e33ad4f9c5934f for example
-- [ ] Write other relevant identifer fields
+- [ ] Check logic for all fields against ASpace MARCXML Export Map and MARC AO mapper
+- [ ] Write other relevant identifer (02x) fields
 - [ ] Write more to-do’s (address TODOs in notebook??)
 - [ ] Make leader
 - [ ] Add back in marc: namespace prefixes at end of conversion
@@ -17,6 +28,7 @@
 - [ ] Create fallbacks for common errors
         Retrying authority file fetches from lccn.loc.gov if first attempt fails
         Moving to non-authority name treatments if fetching from authority file fails multiple times
+- [ ] Go through ASpace MARCXML Export Map and MARC AO mapper and add fields not currently implemented
 
 ## Backlog
 
@@ -55,5 +67,10 @@
         300
         546
 - [X] Write 690
+- [X] Write 500
+- [X] Route physdecs to 300 or 500 depending on content
+- [X] Write 520
+- [X] Add header removal logic to 5xx functions (see ead2marc_520)
+- [X] Write 506
 
 ## Review Notes
