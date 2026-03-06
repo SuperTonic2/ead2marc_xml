@@ -2,18 +2,18 @@
 
 ## Current To-Do's
 
-- [ ] Write 6xx fields in ASpace map
-  - [ ] 651
-  - [ ] 656
-  - [ ] 657
 - [ ] Check with L about subfield 5 in 690 (no subfield 5 listed on Bibformats)
 - [ ] Ask L if use of 650 vs 690 is correct
-- [ ] Go through ASpace MARCXML Export Map and MARC AO mapper and add fields not currently implemented
-- [ ] Create a function that lists all records that already have OCLC no. unitids
-- [ ] Update 506 to pull from the collection-level note if there is none at the component level (idea from MARC AO 506 comment)
-- [ ] Move physdesc notes from 300 to 5xx
-        See aspace_784a34c3013035deb6e33ad4f9c5934f for example
+- [ ] Ask L about whether to add fields:
+  - [ ] 046 (is in MARC AO -- is this needed if we have the 264?)
+  - [ ] 099 (is in both MARC AO and ASpace Crosswalk)
+  - [ ] 351 (is in ASpace Crosswalk)
+  - [ ] 852 (is in both MARC AO and ASpace Crosswalk)
+
 - [ ] Check logic for all fields against ASpace MARCXML Export Map and MARC AO mapper
+  - [ ] !!!STOPPING POINT!!! Finished checking ASpace MARCXML Map, checking MARC AO mapper not yet started
+- [ ] Check if any min level fiels are missing (see PPT L emailed)
+- [ ] Figure out field 555 "raw" variable usage
 - [ ] Write more to-do’s (address TODOs in notebook??)
 - [ ] Make leader
 - [ ] Add back in marc: namespace prefixes at end of conversion
@@ -26,6 +26,10 @@
 
 - [ ] Determine what doesn't work with ASpace version 4 (local test version) vs. version 3 (IU version)
   - [ ] External IDs not in version 4 (affects 02x, 05x, and 08x)
+
+- [ ] Create documentation describing limitations
+  - [ ] No support for 648 (Temporal terms don't show up in ASpace EAD exports)
+  - [ ] No support for 610 or 65x subfields for non-authorized corpnames/titles/subjects/gfts (subdivisions aren't broken into separate tags in EAD export)
 
 ## Backlog
 
@@ -100,7 +104,17 @@
   - [X] 610
   - [X] 630
   - [X] 650
+  - [X] 651
+  - [X] 656
+  - [X] 657
 - [X] Write 690
+- [X] Update 506 to pull from the collection-level note if there is none at the component level (idea from MARC AO 506 comment)
+  - Is in code but commented out as majority of collection-level notes reference full collections, making them inappropriate for an item-level record
+- [X] Create a function that lists all records that already have OCLC no. unitids
+- [X] Go through ASpace MARCXML Export Map and MARC AO mapper and check for fields not currently implemented
+- [X] Add subdivision $v, $x, $y, $z to 6xx
+- [X] Move physdesc notes from 300 to 5xx
+  - See aspace_784a34c3013035deb6e33ad4f9c5934f for example
 
 ## Major Claude Edits
 

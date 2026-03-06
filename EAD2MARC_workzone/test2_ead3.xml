@@ -25,11 +25,11 @@
     <maintenancehistory>
       <maintenanceevent>
         <eventtype value="derived"/>
-        <eventdatetime>2026-03-05T15:09:07+00:00</eventdatetime>
+        <eventdatetime>2026-03-05T19:04:26+00:00</eventdatetime>
         <agenttype value="machine"/>
         <agent>ArchivesSpace v4.1.1</agent>
         <eventdescription>This finding aid was produced using ArchivesSpace on Thursday March 5,
-          2026 at 15:09</eventdescription>
+          2026 at 19:04</eventdescription>
       </maintenanceevent>
     </maintenancehistory>
   </control>
@@ -239,7 +239,8 @@
         </did>
         <controlaccess>
           <geogname source="ingest">
-            <part>Cultural Context Term</part>
+            <part>Cultural Context Term -- Genre Form Subdiv -- Topical Subdiv -- Temporal Subdiv --
+              Geographic Subdiv</part>
           </geogname>
           <function source="ingest">
             <part>Function Term</part>
