@@ -2,20 +2,13 @@
 
 ## Current To-Do's
 
-- [ ] Check with L about subfield 5 in 690 (no subfield 5 listed on Bibformats)
-- [ ] Ask L if use of 650 vs 690 is correct
-- [ ] Ask L about whether to add fields:
-  - [ ] 046 (is in MARC AO -- is this needed if we have the 264?)
-  - [ ] 099 (is in both MARC AO and ASpace Crosswalk)
-  - [ ] 351 (is in ASpace Crosswalk)
-  - [ ] 852 (is in both MARC AO and ASpace Crosswalk)
-
-- [ ] Check logic for all fields against ASpace MARCXML Export Map and MARC AO mapper
-  - [ ] !!!STOPPING POINT!!! Finished checking ASpace MARCXML Map, checking MARC AO mapper not yet started
-- [ ] Check if any min level fiels are missing (see PPT L emailed)
-- [ ] Figure out field 555 "raw" variable usage
+- [ ] FINISH updating 041
+  - [ ] Create second 041 with ind2 "7" and $2 if code isn't in marc code list or iso639t_to_marc (ie. zgh)
 - [ ] Write more to-do’s (address TODOs in notebook??)
 - [ ] Make leader
+- [ ] Add 00x fields
+  - [ ] !!!Make sure 006 and 007 map as control fiels and not data fields (per L)!!!
+- [ ] Made 099 and 351 for collection-level records only
 - [ ] Add back in marc: namespace prefixes at end of conversion
         re.sub(r'<([A-Za-z0-9_:-]+)(\s|>)', r'<marc:\1\2', authority_100_110_str)
         re.sub(r'</([A-Za-z0-9_:-]+)>', r'</marc:\1>', authority_100_110_str)
@@ -26,6 +19,9 @@
 
 - [ ] Determine what doesn't work with ASpace version 4 (local test version) vs. version 3 (IU version)
   - [ ] External IDs not in version 4 (affects 02x, 05x, and 08x)
+- [ ] Create UI
+- [ ] Incorporate features into UI:
+  - [ ] Create some way for user to toggle which name they want to be 100/110 instead of just setting it to first listed creator.
 
 - [ ] Create documentation describing limitations
   - [ ] No support for 648 (Temporal terms don't show up in ASpace EAD exports)
@@ -115,8 +111,83 @@
 - [X] Add subdivision $v, $x, $y, $z to 6xx
 - [X] Move physdesc notes from 300 to 5xx
   - See aspace_784a34c3013035deb6e33ad4f9c5934f for example
+- [X] Create default restriction message for field 506 (idea from MARCO AO mapper)
+- [X] Check logic for all fields against ASpace MARCXML Export Map and MARC AO mapper
+- [X] Check if any min level fiels are missing (see PPT L emailed)
+- [X] Figure out field 555 "raw" variable usage
+- [X] Check with L about subfield 5 in 690 (no subfield 5 listed on Bibformats)
+- [X] Ask L if use of 650 vs 690 is correct
+- [X] Ask L about whether to add fields:
+  - [X] 046 (is in MARC AO -- is this needed if we have the 264?) (no)
+  - [X] 099 (is in both MARC AO and ASpace Crosswalk) (maybe for collection-level only)
+  - [X] 351 (is in ASpace Crosswalk) (test how arrangement and fileplan tags export in EAD)
+  - [X] 852 (is in both MARC AO and ASpace Crosswalk) (no)
+- [X] Add fields 336, 337, and 338
+- [X] Add and clean up comments and docstrings
 
 ## Major Claude Edits
+
+### 2026-03-06: Timeout Fallback for Authority Fetches
+
+**What was done:** Wrapped all `lccn.loc.gov` `requests.get()` calls in `try/except (requests.exceptions.ConnectionError, requests.exceptions.Timeout)` with `timeout=10`. On timeout, the function falls back to manual field construction and prepends an XML comment (`<!-- NOTE: Authority {authfile_no} could not be fetched (connection timeout). Field was constructed manually. -->`) to the output.
+
+**Cells affected (9 total):** ead2marc_110 (`1acc3c99`), ead2marc_600 (`6f32d57f`), ead2marc_610 (`f7ac1c05`), ead2marc_630 (`be6c4944`), ead2marc_650 (`2faad90d`), ead2marc_651 (`c8e8c2e2`), ead2marc_655 (`a25265ed`), ead2marc_700 (`832762d0`), ead2marc_710 (`7a066500`)
+
+**Note:** ead2marc_100 (`42cf188f`) was updated with the same pattern in a prior session.
+
+**Structural change in 630/650/651/655:** Changed `else:` to `if not authfile_no:` so the manual fallback also runs when a timeout clears `authfile_no`.
+
+---
+
+### 2026-03-06: ISBD Comma Punctuation for Manually Constructed Name Fields
+
+**What was done:** Added trailing comma logic to subfield content in manually constructed (non-authority) name fields, matching ISBD punctuation conventions. Subfield definitions were reordered (E before D before A) so later subfields are defined first, allowing earlier subfields to check if a following subfield exists and append a comma accordingly.
+
+- **Personal name fields (600, 700):** `$d` gets comma if `$e` exists; `$a` gets comma if `$d` exists
+- **Corporate name fields (110, 610, 710):** `$a` gets comma if `$e` exists
+
+**Cells affected:** ead2marc_100 (`42cf188f`, user-edited), ead2marc_110 (`1acc3c99`), ead2marc_600 (`6f32d57f`), ead2marc_610 (`f7ac1c05`), ead2marc_700 (`832762d0`), ead2marc_710 (`7a066500`)
+
+---
+
+### 2026-03-05: LC suggest2 API for Subject Heading Lookup (630, 650, 651, 655)
+
+**What was done:** Rewrote the 630, 650, 651, and 655 functions to use the LC suggest2 API to look up authorized subject headings from id.loc.gov, fetch the authority MARC/XML from lccn.loc.gov, and convert the authority tag to the corresponding 6XX tag (130→630, 150→650, 151→651, 155→655). Headings with subdivisions (split on " -- ") are handled by looking up each subdivision via suggest2 and checking the authority record's MARC tag to classify it: 185→$v (form), 181→$z (geographic), 182→$y (chronological), 180→$x (general).
+
+**API endpoints used:**
+
+- 630: `authorities/names/suggest2` (uniform titles)
+- 650: `authorities/subjects/suggest2`
+- 651: `authorities/names/suggest2` (geographic names)
+- 655: `authorities/genreForms/suggest2` (LCGFT), `authorities/subjects/suggest2` (LCSH)
+
+**Cells affected:** ead2marc_630 (`be6c4944`), ead2marc_650 (`2faad90d`), ead2marc_651 (`c8e8c2e2`), ead2marc_655 (`a25265ed`)
+
+---
+
+### 2026-03-05: Whitespace Normalization and Attribute Reorder for 6XX Subject Fields
+
+**What was done:** Added `" ".join(text.split())` whitespace normalization to 630, 650, 651, 655 (EAD XML contains embedded whitespace/newlines pulled through by `xpath("string()")`). Added attribute reorder regex `re.sub(r'<datafield ind1="(.)" ind2="(.)" tag="(\d+)">', ...)` to ensure `tag` appears before `ind1`/`ind2` in output.
+
+**Cells affected:** ead2marc_630 (`be6c4944`), ead2marc_650 (`2faad90d`), ead2marc_651 (`c8e8c2e2`), ead2marc_655 (`a25265ed`)
+
+---
+
+### 2026-03-05: ASpace Identifier Guard for Name Authority Cells
+
+**What was done:** Added `not name.get("identifier", "").startswith("aspace_")` guard to all 6 name authority cells to prevent attempting to fetch authority records using ASpace-internal local identifiers (e.g., `aspace_784a34c3...`).
+
+**Cells affected:** ead2marc_100 (`42cf188f`), ead2marc_110 (`1acc3c99`), ead2marc_600 (`6f32d57f`), ead2marc_610 (`f7ac1c05`), ead2marc_700 (`832762d0`), ead2marc_710 (`7a066500`)
+
+---
+
+### 2026-03-05: Authority/Indicator 2/Subfield $2 Pattern for ead2marc_610
+
+**What was done:** Copied the `authority_raw`/`authority` variable pattern, full indicator 2 section (lcsh→0, cyac→1, mesh→2, nal→3, empty→4, cash→5, rvm→6, else→7), and subfield $2 logic from ead2marc_600 to ead2marc_610. Replaced direct `name.get("source")` usage with the `authority` variable throughout.
+
+**Cell affected:** ead2marc_610 (`f7ac1c05`)
+
+---
 
 ### 2026-02-19: Whitespace Normalization Fix for 5xx Functions
 

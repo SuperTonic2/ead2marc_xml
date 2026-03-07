@@ -25,11 +25,11 @@
     <maintenancehistory>
       <maintenanceevent>
         <eventtype value="derived"/>
-        <eventdatetime>2026-03-05T19:04:26+00:00</eventdatetime>
+        <eventdatetime>2026-03-06T19:59:39+00:00</eventdatetime>
         <agenttype value="machine"/>
         <agent>ArchivesSpace v4.1.1</agent>
-        <eventdescription>This finding aid was produced using ArchivesSpace on Thursday March 5,
-          2026 at 19:04</eventdescription>
+        <eventdescription>This finding aid was produced using ArchivesSpace on Friday March 6, 2026
+          at 19:59</eventdescription>
       </maintenanceevent>
     </maintenancehistory>
   </control>
@@ -255,12 +255,24 @@
             <part>Occupation Term</part>
           </occupation>
           <subject source="ingest">
-            <part>Topical Term</part>
+            <part>Topical Term -- Style Period Subdiv -- Topical Subdiv -- Temporal Subdiv --
+              Geographic Subdiv</part>
           </subject>
           <title source="Source not specified">
             <part>Uniform Title Term</part>
           </title>
         </controlaccess>
+      </c01>
+      <c01 audience="internal" id="aspace_e61fe25c68d7c58fceeed546a7ed80b3" level="item">
+        <did>
+          <unittitle>software agent test</unittitle>
+          <unitid localtype="aspace_uri">/repositories/2/archival_objects/944</unitid>
+          <origination label="Creator">
+            <name relator="ann" rules="local" source="local">
+              <part>ArchivesSpace v4.1.1</part>
+            </name>
+          </origination>
+        </did>
       </c01>
     </dsc>
   </archdesc>
