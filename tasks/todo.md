@@ -2,13 +2,16 @@
 
 ## Current To-Do's
 
-- [ ] FINISH updating 041
-  - [ ] Create second 041 with ind2 "7" and $2 if code isn't in marc code list or iso639t_to_marc (ie. zgh)
-- [ ] Write more to-do’s (address TODOs in notebook??)
-- [ ] Make leader
-- [ ] Add 00x fields
-  - [ ] !!!Make sure 006 and 007 map as control fiels and not data fields (per L)!!!
-- [ ] Made 099 and 351 for collection-level records only
+- [ ] Check leader with L
+  - [ ] Should Elvl (p17) be "3", "5", or "7" (or something else)?
+  - [ ] Shold Desc be "u" or "i" (or something else)?
+- [ ] Check 008 with L
+  - [ ] Is " " correct character for noting blank characters?
+  - [ ] What is supposed to go in 008 bytes 00 to 05 ??
+- [ ] Check with L if fields 006 and/or 007 is needed (at a glance seems like it would be tough to code and aren't listed on the requirements for minimum records PPT)
+
+- [ ] Add support for p15to17 and p18to34 in 008
+- [ ] Made 099 (FINISHED DRAFT -- NEEDS TESTING) and 351 for collection-level records only
 - [ ] Add back in marc: namespace prefixes at end of conversion
         re.sub(r'<([A-Za-z0-9_:-]+)(\s|>)', r'<marc:\1\2', authority_100_110_str)
         re.sub(r'</([A-Za-z0-9_:-]+)>', r'</marc:\1>', authority_100_110_str)
@@ -16,6 +19,7 @@
 - [ ] Create fallbacks for common errors
         Retrying authority file fetches from lccn.loc.gov if first attempt fails
         Moving to non-authority name treatments if fetching from authority file fails multiple times
+- [ ] Write more to-do’s
 
 - [ ] Determine what doesn't work with ASpace version 4 (local test version) vs. version 3 (IU version)
   - [ ] External IDs not in version 4 (affects 02x, 05x, and 08x)
@@ -124,8 +128,51 @@
   - [X] 852 (is in both MARC AO and ASpace Crosswalk) (no)
 - [X] Add fields 336, 337, and 338
 - [X] Add and clean up comments and docstrings
+- [X] FINISH updating 041
+  - [X] Create second 041 with ind2 "7" and $2 if code isn't in marc code list or iso639t_to_marc (ie. zgh)
+- [X] Address TODOs in notebook
+- [X] Make leader
+- [X] Add 00x fields (!!!Make sure 00x map as < controlfield > and not data fields (per L)!!!)
+- [X] Make crtype identification in 336 more robust (search gft and physdescs)
 
 ## Major Claude Edits
+
+### 2026-03-12: Fix physdesc Keyword Detection in ead2marc_336
+
+**What was done:** Fixed two bugs preventing `<physdesc>` text from being searched for content type keywords:
+
+1. `physdesc.xpath(".//*[local-name()='physdesc']")` was looking for a `<physdesc>` *descendant inside* the current element (never matches since physdesc doesn't nest). Changed to check if the current element itself is a plain `<physdesc>` using `physdesc.tag.endswith('physdesc') and not physdesc.tag.endswith('physdescstructured')`.
+2. `raw.xpath(".//*[local-name()='unittype']")[0]` and `raw.xpath(".//*[local-name()='physdesc']")[0]` always grabbed the first element in the whole record. Changed to use the current loop element (`physdesc.xpath(...)` for unittype, `physdesc` directly for physdesc text).
+
+**Cell affected:** ead2marc_336 (`2b29157e`)
+
+---
+
+### 2026-03-12: Whitespace Normalization for 02x/05x/08x Functions
+
+**What was done:** Added `unitid_str = " ".join(unitid_str.split())` after `.strip()` in all 10 sub-functions called by ead2marc_02x_05x_08x. This collapses internal whitespace (newlines, tabs, multiple spaces from EAD XML formatting) into single spaces, preventing line breaks from appearing inside subfield content in MARC output.
+
+**Cells affected (10 total):** ead2marc_020 (`3f387954`), ead2marc_022 (`2cee8f87`), ead2marc_023 (`9875d7ba`), ead2marc_024 (`8431e35b`), ead2marc_026 (`7bd2ad3f`), ead2marc_027 (`f4021706`), ead2marc_028 (`42f6b7a0`), ead2marc_050 (`89ee752e`), ead2marc_082 (`db8f2790`), ead2marc_086 (`7ee88fd8`)
+
+---
+
+### 2026-03-12: Tag 110 Fallback for ead2marc_100 and Family Name Handling for ead2marc_600/700
+
+**What was done:** Synchronized missing features across ead2marc_100, ead2marc_600, and ead2marc_700 so all three functions have consistent handling.
+
+**ead2marc_100** — Added tag 110 fallback (already present in 600 and 700). If the LCNAF authority record contains tag 110 instead of tag 100, the code now falls back to fetching tag 110. Added in both the direct LCNAF path and the VIAF→LCNAF path.
+
+**ead2marc_600 and ead2marc_700** — Added family name handling (already present in 100):
+
+- Indicator 1: Sets `ind1 = "3"` when `name.tag.endswith('famname')`
+- Subfield D: Skips date subfield for family names (dates are not separated from family name strings)
+- Subfield A: Preserves full name string without comma splitting for family names
+
+**Note:** Uses `name.tag.endswith('famname')` only (not `or name in creator_famnames_list`) since `creator_famnames_list` is specific to the 100 field routing context.
+
+**Cells affected:** ead2marc_100 (`42cf188f`), ead2marc_600 (`6f32d57f`), ead2marc_700 (`832762d0`)
+
+---
 
 ### 2026-03-06: Timeout Fallback for Authority Fetches
 
