@@ -10,12 +10,11 @@
   - [ ] What is supposed to go in 008 bytes 00 to 05 ??
 - [ ] Check with L if fields 006 and/or 007 is needed (at a glance seems like it would be tough to code and aren't listed on the requirements for minimum records PPT)
 
-- [ ] Add support for p15to17 and p18to34 in 008
-- [ ] Made 099 (FINISHED DRAFT -- NEEDS TESTING) and 351 for collection-level records only
 - [ ] Add back in marc: namespace prefixes at end of conversion
         re.sub(r'<([A-Za-z0-9_:-]+)(\s|>)', r'<marc:\1\2', authority_100_110_str)
         re.sub(r'</([A-Za-z0-9_:-]+)>', r'</marc:\1>', authority_100_110_str)
 - [ ] Add in looping logic from attrib_loopbox
+  - [ ] Give user option to toggle between selecting specific ID or looping through hierarchy level
 - [ ] Create fallbacks for common errors
         Retrying authority file fetches from lccn.loc.gov if first attempt fails
         Moving to non-authority name treatments if fetching from authority file fails multiple times
@@ -134,8 +133,26 @@
 - [X] Make leader
 - [X] Add 00x fields (!!!Make sure 00x map as < controlfield > and not data fields (per L)!!!)
 - [X] Make crtype identification in 336 more robust (search gft and physdescs)
+- [X] Make 099 and 351 for collection-level records only
+- [X] Add support for p15to17 and p18to34 in 008
 
 ## Major Claude Edits
+
+### 2026-03-26: Priority-Based Leader Position 06 Selection in ead2marc_leader
+
+**What was done:** Replaced the frequency-based p6 code selection with a priority-based approach. When multiple content types are detected by ead2marc_336 (e.g., "txt" and "ntm"), the old logic picked the most frequent code, with ties going to the first occurrence — meaning generic "text" (`a`) would win over specific "score" (`c`). New logic uses a priority dictionary where more specific types always override more generic ones: text(0) < mixed(1) < computer(2) < cartographic(3) < 2D graphic(4) < 3D artifact(5) < moving image(6) < nonmusical sound(7) < musical sound(8) < notated music(9). Selection is now `max(p6_code_list, key=lambda c: p6_priority.get(c, 0))`.
+
+**Cell affected:** ead2marc_leader (`30f45d55`)
+
+---
+
+### 2026-03-26: Script Detection for 008 Position 33 in ead2marc_008
+
+**What was done:** Implemented Unicode script detection for 008 position 33 (Alph) in the `cnr` format block of ead2marc_008. Uses `unicodedata.name()` to identify character scripts in the 245 $a title text and maps them to MARC Alph codes (a=basic Roman, b=extended Roman, c=Cyrillic, d=Japanese, e=Chinese, f=Arabic, g=Greek, h=Hebrew, i=Thai, j=Devanagari, k=Korean, l=Tamil, z=mixed, u=unknown). Also fixed three bugs: `field_300_xml` reference (should be `field_245_xml`), `ead2marc_245` return value treated as list (returns single element), and missing `p34` variable definition.
+
+**Cell affected:** ead2marc_008 (`b5580904`)
+
+---
 
 ### 2026-03-12: Fix physdesc Keyword Detection in ead2marc_336
 
