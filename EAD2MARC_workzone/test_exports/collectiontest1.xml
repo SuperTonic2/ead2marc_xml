@@ -1,0 +1,183 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<marc:collection xmlns:marc="http://www.loc.gov/MARC21/slim" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.loc.gov/MARC21/slim http://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd">
+  <marc:record>
+  <marc:leader>00000ncm a22000005u 4500</marc:leader>
+  <marc:controlfield>     i20022006xx uuu         n    eng d</marc:controlfield>
+  <marc:datafield tag="040" ind1=" " ind2=" ">
+    <marc:subfield code="a">IUL</marc:subfield>
+    <marc:subfield code="b">eng</marc:subfield>
+    <marc:subfield code="e">rda</marc:subfield>
+    <marc:subfield code="c">IUL</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="041" ind1=" " ind2=" ">
+    <marc:subfield code="a">eng</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="041" ind1=" " ind2="7">
+    <marc:subfield code="2">iso639-2b</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="049" ind1=" " ind2=" ">
+    <marc:subfield code="a">IULA</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="028" ind1="5" ind2=" ">
+    <marc:subfield code="a">IMI 7717</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="100" ind1="1" ind2=" ">
+    <marc:subfield code="a">Adler, Ayal,</marc:subfield>
+    <marc:subfield code="d">1968-</marc:subfield>
+    <marc:subfield code="e">composer</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="245" ind1="1" ind2="0">
+    <marc:subfield code="a">Crystallization, for symphony orchestra</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="264" ind1=" " ind2="0">
+    <marc:subfield code="c">2002</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="264" ind1=" " ind2="4">
+    <marc:subfield code="c">c2006</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="300" ind1=" " ind2=" ">
+    <marc:subfield code="a">1 score (61 pages)</marc:subfield>
+    <marc:subfield code="c">42 cm</marc:subfield>
+    <marc:subfield code="a">1</marc:subfield>
+    <marc:subfield code="f">folder(s)</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="336" ind1=" " ind2=" ">
+    <marc:subfield code="a">text</marc:subfield>
+    <marc:subfield code="b">txt</marc:subfield>
+    <marc:subfield code="2">rdacontent</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="336" ind1=" " ind2=" ">
+    <marc:subfield code="a">notated music</marc:subfield>
+    <marc:subfield code="b">ntm</marc:subfield>
+    <marc:subfield code="2">rdacontent</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="337" ind1=" " ind2=" ">
+    <marc:subfield code="a">unmediated</marc:subfield>
+    <marc:subfield code="b">n</marc:subfield>
+    <marc:subfield code="2">rdacontent</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="338" ind1=" " ind2=" ">
+    <marc:subfield code="a">sheet</marc:subfield>
+    <marc:subfield code="b">nb</marc:subfield>
+    <marc:subfield code="2">rdacontent</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="506" ind1=" " ind2=" ">
+    <marc:subfield code="a">This item is part of a collection that is open for research. Retrieval requires advance notice. Please contact the Cook Music Library to access this item.</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="520" ind1="2" ind2=" ">
+    <marc:subfield code="a">Printed score for orchestra.</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="546" ind1=" " ind2=" ">
+    <marc:subfield code="a">English</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="555" ind1=" " ind2=" ">
+    <marc:subfield code="a">Finding aid (work): </marc:subfield>
+    <marc:subfield code="u">https://archives.iu.edu/catalog/VAE4896 </marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="650" ind1=" " ind2=" ">
+    <marc:subfield code="a">Orchestral music</marc:subfield>
+    <marc:subfield code="v">Scores</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="690" ind1=" " ind2="7">
+    <marc:subfield code="a">Alice and Hans Tischler Collection.</marc:subfield>
+    <marc:subfield code="2">local</marc:subfield>
+    <marc:subfield code="5">InU-Mu</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="856" ind1="4" ind2="2">
+    <marc:subfield code="3">Finding aid</marc:subfield>
+    <marc:subfield code="u">https://archives.iu.edu/catalog/VAE4896aspace_28d322fd614f513e6e7d466670000c1e </marc:subfield>
+  </marc:datafield>
+</marc:record>
+  <marc:record>
+  <marc:leader>00000ncm a22000005u 4500</marc:leader>
+  <marc:controlfield>     i19982005xx uuu         n    mul d</marc:controlfield>
+  <marc:datafield tag="040" ind1=" " ind2=" ">
+    <marc:subfield code="a">IUL</marc:subfield>
+    <marc:subfield code="b">eng</marc:subfield>
+    <marc:subfield code="e">rda</marc:subfield>
+    <marc:subfield code="c">IUL</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="041" ind1=" " ind2=" ">
+    <marc:subfield code="a">heb</marc:subfield>
+    <marc:subfield code="a">eng</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="041" ind1=" " ind2="7">
+    <marc:subfield code="2">iso639-2b</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="049" ind1=" " ind2=" ">
+    <marc:subfield code="a">IULA</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="028" ind1="5" ind2=" ">
+    <marc:subfield code="a">IMI 7716</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="100" ind1="1" ind2=" ">
+    <marc:subfield code="a">Adler, Ayal,</marc:subfield>
+    <marc:subfield code="d">1968-</marc:subfield>
+    <marc:subfield code="e">composer</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="245" ind1="1" ind2="0">
+    <marc:subfield code="a">דיאלוגים, לפסנטר ואנסמבל קאמרי = Dialogues, for piano and chamber ensemble</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="264" ind1=" " ind2="0">
+    <marc:subfield code="c">1998</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="264" ind1=" " ind2="4">
+    <marc:subfield code="c">c2005</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="300" ind1=" " ind2=" ">
+    <marc:subfield code="a">1 score (28 pages)</marc:subfield>
+    <marc:subfield code="c">30 cm</marc:subfield>
+    <marc:subfield code="a">1</marc:subfield>
+    <marc:subfield code="f">folder(s)</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="336" ind1=" " ind2=" ">
+    <marc:subfield code="a">text</marc:subfield>
+    <marc:subfield code="b">txt</marc:subfield>
+    <marc:subfield code="2">rdacontent</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="336" ind1=" " ind2=" ">
+    <marc:subfield code="a">notated music</marc:subfield>
+    <marc:subfield code="b">ntm</marc:subfield>
+    <marc:subfield code="2">rdacontent</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="337" ind1=" " ind2=" ">
+    <marc:subfield code="a">unmediated</marc:subfield>
+    <marc:subfield code="b">n</marc:subfield>
+    <marc:subfield code="2">rdacontent</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="338" ind1=" " ind2=" ">
+    <marc:subfield code="a">sheet</marc:subfield>
+    <marc:subfield code="b">nb</marc:subfield>
+    <marc:subfield code="2">rdacontent</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="500" ind1=" " ind2=" ">
+    <marc:subfield code="a">Transliterated title: Di'alogim, le-feṣanṭer ve-anṣambel ḳa'mri</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="506" ind1=" " ind2=" ">
+    <marc:subfield code="a">This item is part of a collection that is open for research. Retrieval requires advance notice. Please contact the Cook Music Library to access this item.</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="520" ind1="2" ind2=" ">
+    <marc:subfield code="a">Printed score for piano and chamber ensemble (2 flutes, oboe, clarinet in Bb, trumpet, trombone, 2 percussionists, violin, viola, cello)</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="546" ind1=" " ind2=" ">
+    <marc:subfield code="a">Hebrew, English</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="555" ind1=" " ind2=" ">
+    <marc:subfield code="a">Finding aid (work): </marc:subfield>
+    <marc:subfield code="u">https://archives.iu.edu/catalog/VAE4896 </marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="650" ind1=" " ind2=" ">
+    <marc:subfield code="a">Piano with chamber orchestra</marc:subfield>
+    <marc:subfield code="v">Scores</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="690" ind1=" " ind2="7">
+    <marc:subfield code="a">Alice and Hans Tischler Collection.</marc:subfield>
+    <marc:subfield code="2">local</marc:subfield>
+    <marc:subfield code="5">InU-Mu</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="856" ind1="4" ind2="2">
+    <marc:subfield code="3">Finding aid</marc:subfield>
+    <marc:subfield code="u">https://archives.iu.edu/catalog/VAE4896aspace_b558f66ef25893a4a9b89e5338feba93 </marc:subfield>
+  </marc:datafield>
+</marc:record>
+</marc:collection>

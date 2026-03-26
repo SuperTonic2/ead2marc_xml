@@ -8,21 +8,20 @@
 - [ ] Check 008 with L
   - [ ] Is " " correct character for noting blank characters?
   - [ ] What is supposed to go in 008 bytes 00 to 05 ??
+  - [ ] Is current approach for positions 18-34 (for positions where accurate population based on EAD alone is not possible, codes are set statically to the default code, "not specified", or "unknown") appropriate?
 - [ ] Check with L if fields 006 and/or 007 is needed (at a glance seems like it would be tough to code and aren't listed on the requirements for minimum records PPT)
 
-- [ ] Add back in marc: namespace prefixes at end of conversion
-        re.sub(r'<([A-Za-z0-9_:-]+)(\s|>)', r'<marc:\1\2', authority_100_110_str)
-        re.sub(r'</([A-Za-z0-9_:-]+)>', r'</marc:\1>', authority_100_110_str)
-- [ ] Add in looping logic from attrib_loopbox
-  - [ ] Give user option to toggle between selecting specific ID or looping through hierarchy level
-- [ ] Create fallbacks for common errors
-        Retrying authority file fetches from lccn.loc.gov if first attempt fails
-        Moving to non-authority name treatments if fetching from authority file fails multiple times
+- [ ] Add more progress messages
+  - [ ] When final marc xml collection is being compiled
+  - [ ] Time elapsed between record creation
+  - [ ] Total time elapsed from start to finish
+- [ ] Check item-level test exports and debug any issues
+- [ ] Check collection-level exports and refine against constant data workform
 - [ ] Write more to-do’s
 
 - [ ] Determine what doesn't work with ASpace version 4 (local test version) vs. version 3 (IU version)
   - [ ] External IDs not in version 4 (affects 02x, 05x, and 08x)
-- [ ] Create UI
+- [ ] Create UI OR consider making into an ASpace plugin
 - [ ] Incorporate features into UI:
   - [ ] Create some way for user to toggle which name they want to be 100/110 instead of just setting it to first listed creator.
 
@@ -135,8 +134,34 @@
 - [X] Make crtype identification in 336 more robust (search gft and physdescs)
 - [X] Make 099 and 351 for collection-level records only
 - [X] Add support for p15to17 and p18to34 in 008
+- [X] Add back in marc: namespace prefixes at end of conversion
+        re.sub(r'<([A-Za-z0-9_:-]+)(\s|>)', r'<marc:\1\2', authority_100_110_str)
+        re.sub(r'</([A-Za-z0-9_:-]+)>', r'</marc:\1>', authority_100_110_str)
+- [X] Add in looping logic from attrib_loopbox
+  - [X] Give user option to toggle between selecting specific ID or looping through hierarchy level
+- [X] Create fallbacks for common errors
+        Retrying authority file fetches from lccn.loc.gov if first attempt fails
+        Moving to non-authority name treatments if fetching from authority file fails multiple times
 
 ## Major Claude Edits
+
+### 2026-03-26: Parse Type Toggle and Looping Logic in Setup Cell
+
+**What was done:** Incorporated the parse_type toggle from attrib_loopbox into the main notebook (v1.8) setup cell. Users now choose between parsing by ID (option "1") or by hierarchy level (option "2"). For hierarchy level, "collection" targets `<archdesc>`, while other levels (e.g., "item") target `<c>` elements with the matching `@level` attribute. Wrapped all global variable setup (vaid, names lists, subject lists) and the `ead2marc_rec()` call inside a `for c0_raw in result:` loop so multiple matching records are processed sequentially.
+
+**Cell affected:** Setup cell 0 (`eb783a5d`) in EAD2MARCv1.8.ipynb
+
+---
+
+### 2026-03-26: Timeout Warning Comments Included in Returned XML
+
+**What was done:** Changed all 10 authority sub-functions so timeout warning comments are included in the returned XML, not just in the printed string. Previously, the `<!-- NOTE: Authority ... -->` comment was prepended to the string for printing but the returned XML element didn't include it. Now each function returns a list: `[comment_xml, field_xml]` when there's a timeout, or `[field_xml]` when there isn't. Comment nodes are created with `etree.Comment()`. Updated all 3 sorter functions to use `.extend()` instead of `.append()` to handle the list returns.
+
+**Sub-functions affected (10):** ead2marc_100, ead2marc_110, ead2marc_600, ead2marc_610, ead2marc_630, ead2marc_650, ead2marc_651, ead2marc_655, ead2marc_700, ead2marc_710
+
+**Sorter functions affected (3):** ead2marc_100_110, ead2marc_600_610_630_65x, ead2marc_700_710
+
+---
 
 ### 2026-03-26: Priority-Based Leader Position 06 Selection in ead2marc_leader
 
