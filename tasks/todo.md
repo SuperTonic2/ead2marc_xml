@@ -10,15 +10,23 @@
   - [ ] What is supposed to go in 008 bytes 00 to 05 ??
   - [ ] Is current approach for positions 18-34 (for positions where accurate population based on EAD alone is not possible, codes are set statically to the default code, "not specified", or "unknown") appropriate?
 - [ ] Check with L if fields 006 and/or 007 is needed (at a glance seems like it would be tough to code and aren't listed on the requirements for minimum records PPT)
+- [ ] Check with L if having MC and VAE numbers in both 035 and 099 is appropriate (see TODO in v1.81.py)
 
-- [ ] Add more progress messages
-  - [ ] When final marc xml collection is being compiled
-  - [ ] Time elapsed between record creation
-  - [ ] Total time elapsed from start to finish
-- [ ] Check item-level test exports and debug any issues
 - [ ] Check collection-level exports and refine against constant data workform
+  - [X] Add 035 for collection-level VAE and MC numbers
+  - [ ] Add 246 fiels for alternate collection title nameforms
+  - [ ] Incorporate certainty into date expression in 264
+        (make sure this won't break other stuff like DtSt in leader/008)
+  - [ ] Add ISBD punctuation on end of 300 (period at end)
+  - [ ] Consider removing subfield f in 300 and putting everything in subfield a (see bibformats)
+  - [ ] Fix all caps series names in 351 and 520
+  - [ ] HTML escape 540? (and other 500 notes?s)
+  - [ ] Add additional subfield support to 541 field
+  - [ ] Check leader and 008
+- [ ] Check item-level test exports and debug any issues
 - [ ] Write more to-do’s
 
+- [ ] Check ISBD punctuation
 - [ ] Determine what doesn't work with ASpace version 4 (local test version) vs. version 3 (IU version)
   - [ ] External IDs not in version 4 (affects 02x, 05x, and 08x)
 - [ ] Create UI OR consider making into an ASpace plugin
@@ -28,6 +36,7 @@
 - [ ] Create documentation describing limitations
   - [ ] No support for 648 (Temporal terms don't show up in ASpace EAD exports)
   - [ ] No support for 610 or 65x subfields for non-authorized corpnames/titles/subjects/gfts (subdivisions aren't broken into separate tags in EAD export)
+- [ ] Add ChatGPT and Claude chat logs into folder in repo
 
 ## Backlog
 
@@ -142,6 +151,10 @@
 - [X] Create fallbacks for common errors
         Retrying authority file fetches from lccn.loc.gov if first attempt fails
         Moving to non-authority name treatments if fetching from authority file fails multiple times
+- [X] Add more progress messages
+  - [X] When final marc xml collection is being compiled (already created manually)
+  - [X] Time elapsed between record creation
+  - [X] Total time elapsed from start to finish
 
 ## Major Claude Edits
 

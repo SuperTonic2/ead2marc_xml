@@ -4,6 +4,7 @@ import requests
 import html
 import pycallnumber as pycn
 import unicodedata
+from copy import deepcopy
 from lxml import etree
 # import collections
 
@@ -15,8 +16,8 @@ def loc_get(url, **kwargs):
     """Rate-limited requests.get for loc.gov endpoints."""
     global _last_loc_request_time
     elapsed = time.time() - _last_loc_request_time
-    if elapsed < 6:
-        time.sleep(6 - elapsed)
+    if elapsed < 7:
+        time.sleep(7 - elapsed)
     _last_loc_request_time = time.time()
     return requests.get(url, **kwargs)
 
@@ -358,6 +359,61 @@ def ead2marc_050(unitid_raw):
     # print(field_050_str)
     return field_050_xml
 
+def ead2marc_035(unitid_raw):
+    '''Parses local collection numbers and creates 035'''
+    unitid_str = unitid_raw.xpath("string()").strip()
+    unitid_str = " ".join(unitid_str.split())
+
+    # INDICATORS
+    # Indicator 1 is constant (blank)
+    # Indicator 2 is constant (blank)
+
+    # SUBFIELDS
+    # Subfield A
+    if unitid_str.startswith("MC"):
+        a_content = f"""(Inu-MuID){unitid_str}"""
+    else:
+        a_content = f"""{unitid_str}"""
+    a_035 = f"""<subfield code="a">{a_content}</subfield>"""
+
+    # PRINT 035 FIELD
+    field_035_open = """<datafield tag="035" ind1=" " ind2=" ">"""
+    field_035_str_nb = field_035_open + a_035 + "</datafield>"
+    field_035_xml = etree.fromstring(field_035_str_nb)
+    # field_035_str = etree.tostring(field_035_xml, pretty_print=True, encoding="unicode")
+
+    # print(field_035_str)
+    return field_035_xml
+
+def ead2marc_035_va(root, raw):
+    level = raw.attrib['level']
+    num_fetch = root.xpath(".//*[local-name()='num']")
+    recordid_fetch = root.xpath(".//*[local-name()='recordid']")
+    num_fetch.extend(recordid_fetch) # (Troubleshot with Claude Opus 4.6)
+    field_035_va_xml_list = []
+    if level == "collection" and num_fetch:
+        # INDICATORS
+        # Indicator 1 is constant (blank)
+        # Indiactor 2 is constant (9)
+
+        # SUBFIELDS
+        # Subfield A
+        for num_raw in num_fetch:
+            num_clean = num_raw.xpath("string()").strip()
+            num_clean = html.escape(num_clean)
+            a_035_va = f"""<subfield code="a">(EADID){num_clean}</subfield>"""
+
+            # PRINT 099 FIELD
+            field_035_va_open = """<datafield tag="099" ind1=" " ind2="9">"""
+            field_035_va_str_nb = field_035_va_open + a_035_va + "</datafield>"
+            field_035_va_xml = etree.fromstring(field_035_va_str_nb)
+            field_035_va_xml_list.append(field_035_va_xml)
+            # field_035_va_str = etree.tostring(field_035_va_xml, pretty_print=True, encoding="unicode")
+            # print(field_035_va_str)
+        
+        return field_035_va_xml_list
+
+
 
 def ead2marc_082(unitid_raw):
     '''Parses Dewey call number and creates 082 with classification and cutter'''
@@ -422,10 +478,11 @@ def ead2marc_086(unitid_raw):
     return field_086_xml
 
 
-def ead2marc_02x_05x_08x(raw):
-    '''Routes unitid elements to 020, 050, 082, or 086 based on call number type'''
+def ead2marc_02x_03x_05x_08x(raw):
+    '''Routes unitid elements to a 02x, 035, 050, or 08x field based on number type'''
     
-    field_02x_05x_08x_xml_list = []
+    level = raw.attrib['level']
+    field_02x_03x_05x_08x_xml_list = []
     unitid_list = raw.xpath(".//*[local-name()='unitid']")
     for unitid in unitid_list:
         unitid_type = unitid.get("type", "").lower()
@@ -438,53 +495,59 @@ def ead2marc_02x_05x_08x(raw):
             callno_type = type(callnotest).__name__
             if callno_type == "LC":
                 field_050_xml = ead2marc_050(unitid)
-                field_02x_05x_08x_xml_list.append(field_050_xml)
+                field_02x_03x_05x_08x_xml_list.append(field_050_xml)
             elif callno_type == "Dewey":
                 field_082_xml = ead2marc_082(unitid)
-                field_02x_05x_08x_xml_list.append(field_082_xml)
+                field_02x_03x_05x_08x_xml_list.append(field_082_xml)
             elif callno_type == "SuDoc":
                 field_086_xml = ead2marc_086(unitid)
-                field_02x_05x_08x_xml_list.append(field_086_xml)
+                field_02x_03x_05x_08x_xml_list.append(field_086_xml)
             else:
                 if (unitid_type == "isbn") or ("international standard book" in unitid_type):
                     field_020_xml = ead2marc_020(unitid)
-                    field_02x_05x_08x_xml_list.append(field_020_xml)
+                    field_02x_03x_05x_08x_xml_list.append(field_020_xml)
                 elif unitid_type == "issn" or ("international standard serial" in unitid_type and "cluster" not in unitid_type):
                     field_022_xml = ead2marc_022(unitid)
-                    field_02x_05x_08x_xml_list.append(field_022_xml)
+                    field_02x_03x_05x_08x_xml_list.append(field_022_xml)
                 elif (unitid_type == "issn-l" or unitid_type == "issn-h") or ("international standard serial" in unitid_type and "cluster" in unitid_type):
                     field_023_xml = ead2marc_023(unitid)
-                    field_02x_05x_08x_xml_list.append(field_023_xml)
+                    field_02x_03x_05x_08x_xml_list.append(field_023_xml)
                 elif (unitid_type == "isrc") or ("international standard recording code" in unitid_type):
                     field_024_xml = ead2marc_024(unitid)
-                    field_02x_05x_08x_xml_list.append(field_024_xml)
+                    field_02x_03x_05x_08x_xml_list.append(field_024_xml)
                 elif (unitid_type == "upc") or ("universal product code" in unitid_type):
                     field_024_xml = ead2marc_024(unitid)
-                    field_02x_05x_08x_xml_list.append(field_024_xml)
+                    field_02x_03x_05x_08x_xml_list.append(field_024_xml)
                 elif (unitid_type == "ismn") or ("international standard music" in unitid_type):
                     field_024_xml = ead2marc_024(unitid)
-                    field_02x_05x_08x_xml_list.append(field_024_xml)
+                    field_02x_03x_05x_08x_xml_list.append(field_024_xml)
                 elif (unitid_type == "ean") or ("international article number" in unitid_type):
                     field_024_xml = ead2marc_024(unitid)
-                    field_02x_05x_08x_xml_list.append(field_024_xml)
+                    field_02x_03x_05x_08x_xml_list.append(field_024_xml)
                 elif (unitid_type == "sici") or ("serial item and contribution" in unitid_type):
                     field_024_xml = ead2marc_024(unitid)
-                    field_02x_05x_08x_xml_list.append(field_024_xml)
+                    field_02x_03x_05x_08x_xml_list.append(field_024_xml)
                 elif unitid_type == "fingerprint" or unitid_type == "fingerprint identifier":
                     field_026_xml = ead2marc_026(unitid)
-                    field_02x_05x_08x_xml_list.append(field_026_xml)
+                    field_02x_03x_05x_08x_xml_list.append(field_026_xml)
                 elif (unitid_type == "strn" or unitid_type == "isrn") or ("standard technical report" in unitid_type):
                     field_027_xml = ead2marc_027(unitid)
-                    field_02x_05x_08x_xml_list.append(field_027_xml)
+                    field_02x_03x_05x_08x_xml_list.append(field_027_xml)
                 elif ("publisher" in unitid_type) or ("issue" in unitid_type) or ("matrix" in unitid_type) or ("plate" in unitid_type) or ("distributor" in unitid_type):
                     field_028_xml = ead2marc_028(unitid)
-                    field_02x_05x_08x_xml_list.append(field_028_xml)
+                    field_02x_03x_05x_08x_xml_list.append(field_028_xml)
+                elif level == "collection":
+                    if unitid_str.startswith("VA"):
+                        field_035_xml = ead2marc_035_va(unitid)
+                    else:
+                        field_035_xml = ead2marc_035(unitid)
+                    field_02x_03x_05x_08x_xml_list.append(field_035_xml)
                 else:
                     field_024_xml = ead2marc_024(unitid)
-                    field_02x_05x_08x_xml_list.append(field_024_xml)
+                    field_02x_03x_05x_08x_xml_list.append(field_024_xml)
     
-    if field_02x_05x_08x_xml_list:
-        return field_02x_05x_08x_xml_list
+    if field_02x_03x_05x_08x_xml_list:
+        return field_02x_03x_05x_08x_xml_list
 
 
 def ead2marc_040():
@@ -1101,6 +1164,8 @@ def ead2marc_041(raw):
         a_041_lists.append(a_041_iso_list)
             
         for a_041_list in a_041_lists:
+            if not a_041_list:
+                continue
             # PRINT 041 FIELD
             if a_041_list == a_041_marc_list:
                 ind2_041 = " "
@@ -1146,39 +1211,40 @@ def ead2marc_049():
     # print(field_049_str)
     return field_049_xml_list
 
+### TODO: chcek if ead2marc_035va is working correctly and ask L if 035 or 099 is better for VAE.
+# def ead2marc_099(root, raw):
+#     level = raw.attrib['level']
+#     num_fetch = root.xpath(".//*[local-name()='num']")
+#     recordid_fetch = root.xpath(".//*[local-name()='recordid']")
+#     num_fetch.extend(recordid_fetch) # (Troubleshot with Claude Opus 4.6)
+#     field_099_xml_list = []
+#     if level == "collection" and num_fetch:
+#         # INDICATORS
+#         # Indicator 1 is constant (blank)
+#         # Indiactor 2 is constant (9)
 
-def ead2marc_099(root, raw):
-    level = raw.attrib['level']
-    num_fetch = root.xpath(".//*[local-name()='num']")
-    recordid_fetch = root.xpath(".//*[local-name()='recordid']")
-    num_fetch.extend(recordid_fetch) # (Troubleshot with Claude Opus 4.6)
-    field_099_xml_list = []
-    if level == "collection" and num_fetch:
-        # INDICATORS
-        # Indicator 1 is constant (blank)
-        # Indiactor 2 is constant (9)
+#         # SUBFIELDS
+#         # Subfield A
+#         for num_raw in num_fetch:
+#             num_clean = num_raw.xpath("string()").strip()
+#             num_clean = html.escape(num_clean)
+#             a_099 = f"""<subfield code="a">{num_clean}</subfield>"""
 
-        # SUBFIELDS
-        # Subfield A
-        for num_raw in num_fetch:
-            num_clean = num_raw.xpath("string()").strip()
-            num_clean = html.escape(num_clean)
-            a_099 = f"""<subfield code="a">{num_clean}</subfield>"""
-
-            # PRINT 099 FIELD
-            field_099_open = """<datafield tag="099" ind1=" " ind2="9">"""
-            field_099_str_nb = field_099_open + a_099 + "</datafield>"
-            field_099_xml = etree.fromstring(field_099_str_nb)
-            field_099_xml_list.append(field_099_xml)
-            # field_099_str = etree.tostring(field_099_xml, pretty_print=True, encoding="unicode")
-            # print(field_099_str)
+#             # PRINT 099 FIELD
+#             field_099_open = """<datafield tag="099" ind1=" " ind2="9">"""
+#             field_099_str_nb = field_099_open + a_099 + "</datafield>"
+#             field_099_xml = etree.fromstring(field_099_str_nb)
+#             field_099_xml_list.append(field_099_xml)
+#             # field_099_str = etree.tostring(field_099_xml, pretty_print=True, encoding="unicode")
+#             # print(field_099_str)
         
-        return field_099_xml_list
+#         return field_099_xml_list
 
 
 def ead2marc_100(name):
     a_alpha = []
     d_num = []
+    authority_100_str = None
     '''Creates 100 (main entry personal name) with authority validation'''
 
     # Check if main name is associated with an authority file
@@ -1243,7 +1309,7 @@ def ead2marc_100(name):
             authority_100_str_list_stripped = [str.strip() for str in authority_100_str_list]
             authority_100_str = "".join(authority_100_str_list_stripped)
             authority_100_str = re.sub(r'</datafield>', '', authority_100_str).strip()
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError):
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError, IndexError):
             print(f"WARNING: Connection to lccn.loc.gov timed out for {authfile_no}. Constructing field manually.")
             authority = None
             timeout_error = True
@@ -1279,7 +1345,7 @@ def ead2marc_100(name):
                 authority_100_str_list_stripped = [str.strip() for str in authority_100_str_list]
                 authority_100_str = "".join(authority_100_str_list_stripped)
                 authority_100_str = re.sub(r'</datafield>', '', authority_100_str).strip()
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError):
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError, IndexError):
                 print(f"WARNING: Connection to lccn.loc.gov timed out for {lc_id}. Constructing field manually.")
                 authority = None
                 timeout_error = True
@@ -1319,6 +1385,11 @@ def ead2marc_100(name):
                 viaf_subfields += f'<subfield code="d">{viaf_d_content}</subfield>'
             authority_100_str = f'<datafield tag="100" ind1="{viaf_ind1}" ind2=" ">{viaf_subfields}'
     else:
+        authority = None
+
+    # If authority fetch failed, reset authority so manual construction runs
+    # (This portion of code was generated utilizing Claude Opus 4.6)
+    if authority in ("lcnaf", "viaf") and authority_100_str is None:
         authority = None
 
     # INDICATORS
@@ -1379,7 +1450,8 @@ def ead2marc_100(name):
         a_100 = f"""<subfield code="a">{a_content}</subfield>"""
 
     # PRINT 100 FIELD
-    if authority == "lcnaf" or authority == "viaf":
+    # (This portion of code was troubleshot utilizing Claude Opus 4.6)
+    if authority in ("lcnaf", "viaf") and authority_100_str is not None:
         field_100_str_nb = authority_100_str + e_100 + "</datafield>"
         field_100_xml = etree.fromstring(field_100_str_nb)
         field_100_str = etree.tostring(field_100_xml, pretty_print=True, encoding="unicode")
@@ -1410,6 +1482,7 @@ def ead2marc_100(name):
 
 
 def ead2marc_110(name):
+    authority_110_str = None
     '''Creates 110 (main entry corporate name) with authority validation'''
 
     # Check if main name is associated with an authority file
@@ -1470,7 +1543,7 @@ def ead2marc_110(name):
             authority_110_str_list_stripped = [str.strip() for str in authority_110_str_list]
             authority_110_str = "".join(authority_110_str_list_stripped)
             authority_110_str = re.sub(r'</datafield>', '', authority_110_str).strip()
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError):
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError, IndexError):
             print(f"WARNING: Connection to lccn.loc.gov timed out for {authfile_no}. Constructing field manually.")
             authority = None
             timeout_error = True
@@ -1502,7 +1575,7 @@ def ead2marc_110(name):
                 authority_110_str_list_stripped = [str.strip() for str in authority_110_str_list]
                 authority_110_str = "".join(authority_110_str_list_stripped)
                 authority_110_str = re.sub(r'</datafield>', '', authority_110_str).strip()
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError):
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError, IndexError):
                 print(f"WARNING: Connection to lccn.loc.gov timed out for {lc_id}. Constructing field manually.")
                 authority = None
                 timeout_error = True
@@ -1517,6 +1590,11 @@ def ead2marc_110(name):
             viaf_subfields = f'<subfield code="a">{viaf_main_heading}</subfield>'
             authority_110_str = f'<datafield tag="110" ind1="2" ind2=" ">{viaf_subfields}'
     else:
+        authority = None
+
+    # If authority fetch failed, reset authority so manual construction runs
+    # (This portion of code was generated utilizing Claude Opus 4.6)
+    if authority in ("lcnaf", "viaf") and authority_110_str is None:
         authority = None
 
     # INDICATORS
@@ -1548,7 +1626,8 @@ def ead2marc_110(name):
         a_110 = f"""<subfield code="a">{a_content}</subfield>"""
 
     # PRINT 110 FIELD
-    if authority == "lcnaf" or authority == "viaf":
+    # (This portion of code was troubleshot utilizing Claude Opus 4.6)
+    if authority in ("lcnaf", "viaf") and authority_110_str is not None:
         field_110_str_nb = authority_110_str + e_110 + "</datafield>"
         field_110_xml = etree.fromstring(field_110_str_nb)
         field_110_str = etree.tostring(field_110_xml, pretty_print=True, encoding="unicode")
@@ -1611,6 +1690,7 @@ def ead2marc_100_110(names_list):
 def ead2marc_245(raw):
     '''Creates 245 (title statement) from unittitle element'''
 
+    level = raw.attrib['level']
     field_245_xml_list = []
     # INDICATORS
     # Indicator 1 is constant (1)
@@ -1623,6 +1703,9 @@ def ead2marc_245(raw):
     title_clean = title_raw.xpath("string()").strip()
     title_clean = html.escape(title_clean)
     title_clean = " ".join(title_clean.split())
+    # Adds [brackets] around title if collection level
+    if level == "collection":
+        title_clean = "[" + title_clean + "]"
     a_245 = f"""<subfield code="a">{title_clean}</subfield>"""
 
     # PRINT 245 FIELD
@@ -2295,7 +2378,7 @@ def ead2marc_524(raw):
         for prefercite_raw in prefercite_list:
 
             # INDICATORS
-            # Indicator 1 is constant (8)
+            # Indicator 1 is constant (blank)
             # Indicator 2 is constant (blank)
 
             # SUBFIELDS
@@ -2311,7 +2394,7 @@ def ead2marc_524(raw):
             a_524 = f"""<subfield code="a">{prefercite_clean}</subfield>"""
 
             # PRINT 524 FIELD
-            field_524_str_nb = """<datafield tag="524" ind1="8" ind2=" ">""" + a_524 + "</datafield>"
+            field_524_str_nb = """<datafield tag="524" ind1=" " ind2=" ">""" + a_524 + "</datafield>"
             field_524_xml = etree.fromstring(field_524_str_nb)
             field_524_xml_list.append(field_524_xml)
             # field_524_str = etree.tostring(field_524_xml, pretty_print=True, encoding="unicode")
@@ -2463,7 +2546,7 @@ def ead2marc_544(raw):
             # Indicator 2 is constant (blank)
 
             # SUBFIELDS
-            # Subfield A
+            # Subfield N
             loamnote_clean = loamnote.xpath("string()").strip(".")
             loamnote_head_list = loamnote.xpath(".//*[local-name()='head']")
             if loamnote_head_list:
@@ -2472,10 +2555,10 @@ def ead2marc_544(raw):
             # (This portion of code was generated utilizing Claude Opus 4.6)
             loamnote_clean = " ".join(loamnote_clean.split())
             loamnote_clean = html.escape(loamnote_clean)
-            a_544 = f"""<subfield code="a">{loamnote_clean}</subfield>"""
+            n_544 = f"""<subfield code="n">{loamnote_clean}</subfield>"""
 
             # PRINT 544 FIELD
-            field_544_str_nb = """<datafield tag="544" ind1=" " ind2=" ">""" + a_544 + "</datafield>"
+            field_544_str_nb = """<datafield tag="544" ind1=" " ind2=" ">""" + n_544 + "</datafield>"
             field_544_xml = etree.fromstring(field_544_str_nb)
             field_544_xml_list.append(field_544_xml)
             # field_544_str = etree.tostring(field_544_xml, pretty_print=True, encoding="unicode")
@@ -2579,6 +2662,7 @@ def ead2marc_546(raw):
 def ead2marc_555(va_id):
     '''Creates 555 (finding aid note) with link to ArchivesSpace finding aid'''
 
+    level = c0_raw.attrib['level']
     field_555_xml_list = []
     if va_id:
 
@@ -2595,7 +2679,14 @@ def ead2marc_555(va_id):
         u_555 = f"""<subfield code="u">{faid_uri} </subfield>"""
 
         # PRINT 555 FIELD
-        field_555_str_nb = """<datafield tag="555" ind1=" " ind2=" ">""" + a_555 + u_555 + "</datafield>"
+        # (Troubleshoot using Claude Opus 4.6)
+        field_555_op = """<datafield tag="555" ind1=" " ind2=" ">"""
+        if level == "collection":
+            field_555_static_ms = "Finding aid (available on Indiana University Archives Online) includes series and subseries listing of items in the collection including dates, descriptions, scope, and extent of the materials."
+            field_555_static_str_nb = field_555_op + f"""<subfield code="a">{field_555_static_ms}</subfield>""" + "</datafield>"
+            field_555_static_xml = etree.fromstring(field_555_static_str_nb)
+            field_555_xml_list.append(field_555_static_xml)
+        field_555_str_nb = field_555_op + a_555 + u_555 + "</datafield>"
         field_555_xml = etree.fromstring(field_555_str_nb)
         field_555_xml_list.append(field_555_xml)
         # field_555_str = etree.tostring(field_555_xml, pretty_print=True, encoding="unicode")
@@ -2735,6 +2826,7 @@ def ead2marc_584(raw):
 def ead2marc_600(name):
     a_alpha = []
     d_num = []
+    authority_600_str = None
     '''Creates 600 (personal name subject) with authority validation'''
 
     # Check if name is associated with an authority file
@@ -2809,7 +2901,7 @@ def ead2marc_600(name):
             authority_600_str = authority_600_str.replace('tag="100"', 'tag="600"')
             # (This portion of code was generated utilizing Claude Opus 4.6)
             authority_600_str = authority_600_str.replace('tag="110"', 'tag="710"')
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError):
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError, IndexError):
             print(f"WARNING: Connection to lccn.loc.gov timed out for {authfile_no}. Constructing field manually.")
             authority = None
             timeout_error = True
@@ -2849,7 +2941,7 @@ def ead2marc_600(name):
                 authority_600_str = authority_600_str.replace('tag="100"', 'tag="600"')
                 # (This portion of code was generated utilizing Claude Opus 4.6)
                 authority_600_str = authority_600_str.replace('tag="110"', 'tag="710"')
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError):
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError, IndexError):
                 print(f"WARNING: Connection to lccn.loc.gov timed out for {lc_id}. Constructing field manually.")
                 authority = None
                 timeout_error = True
@@ -2889,6 +2981,11 @@ def ead2marc_600(name):
                 viaf_subfields += f'<subfield code="d">{viaf_d_content}</subfield>'
             authority_600_str = f'<datafield tag="600" ind1="{viaf_ind1}" ind2=" ">{viaf_subfields}'
 
+    # If authority fetch failed, reset authority so manual construction runs
+    # (This portion of code was generated utilizing Claude Opus 4.6)
+    if authority in ("lcnaf", "viaf") and authority_600_str is None:
+        authority = None
+
     # INDICATORS
     # Indicator 1
     # (This portion of code was troubleshot utilizing Claude Opus 4.6)
@@ -2920,9 +3017,7 @@ def ead2marc_600(name):
         ind2_600 = "2"
     elif authority == "nal":
         ind2_600 = "3"
-    elif authority == "":
-        ind2_600 = "4"
-    elif authority == "source not specified":
+    elif authority in ("", None, "source not specified"):
         ind2_600 = "4"
     elif authority == "cash":
         ind2_600 = "5"
@@ -2943,7 +3038,7 @@ def ead2marc_600(name):
         e_600 = ""
 
     # Subfield F
-    if ind2_600 == "7":
+    if ind2_600 == "7" and authority is not None:
         f_600 = f"""<subfield code="2">{authority}</subfield>"""
     else:
         f_600 = ""
@@ -2974,7 +3069,8 @@ def ead2marc_600(name):
         a_600 = f"""<subfield code="a">{a_content}</subfield>"""
 
     # PRINT 600 FIELD
-    if authority == "lcnaf" or authority == "viaf":
+    # (This portion of code was troubleshot utilizing Claude Opus 4.6)
+    if authority in ("lcnaf", "viaf") and authority_600_str is not None:
         field_600_str_nb = authority_600_str + e_600 + "</datafield>"
         field_600_xml = etree.fromstring(field_600_str_nb)
         field_600_str = etree.tostring(field_600_xml, pretty_print=True, encoding="unicode")
@@ -3001,6 +3097,7 @@ def ead2marc_600(name):
 
 
 def ead2marc_610(name):
+    authority_610_str = None
     '''Creates 610 (corporate name subject) with authority validation'''
 
     # Check if main name is associated with an authority file
@@ -3068,7 +3165,7 @@ def ead2marc_610(name):
             # Change tag from 110 to 610
             # (This portion of code was generated utilizing Claude Opus 4.5)
             authority_610_str = authority_610_str.replace('tag="110"', 'tag="610"')
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError):
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError, IndexError):
             print(f"WARNING: Connection to lccn.loc.gov timed out for {authfile_no}. Constructing field manually.")
             authority = None
             timeout_error = True
@@ -3103,7 +3200,7 @@ def ead2marc_610(name):
                 # Change tag from 110 to 610
                 # (This portion of code was generated utilizing Claude Opus 4.5)
                 authority_610_str = authority_610_str.replace('tag="110"', 'tag="610"')
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError):
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError, IndexError):
                 print(f"WARNING: Connection to lccn.loc.gov timed out for {lc_id}. Constructing field manually.")
                 authority = None
                 timeout_error = True
@@ -3118,6 +3215,11 @@ def ead2marc_610(name):
             viaf_subfields = f'<subfield code="a">{viaf_main_heading}</subfield>'
             authority_610_str = f'<datafield tag="610" ind1="2" ind2=" ">{viaf_subfields}'
     else:
+        authority = None
+
+    # If authority fetch failed, reset authority so manual construction runs
+    # (This portion of code was generated utilizing Claude Opus 4.6)
+    if authority in ("lcnaf", "viaf") and authority_610_str is None:
         authority = None
 
     # INDICATORS
@@ -3136,9 +3238,7 @@ def ead2marc_610(name):
         ind2_610 = "2"
     elif authority == "nal":
         ind2_610 = "3"
-    elif authority == "":
-        ind2_610 = "4"
-    elif authority == "source not specified":
+    elif authority in ("", None, "source not specified"):
         ind2_610 = "4"
     elif authority == "cash":
         ind2_610 = "5"
@@ -3161,7 +3261,7 @@ def ead2marc_610(name):
 
     # Subfield F
     # (This portion of code was generated utilizing Claude Opus 4.6)
-    if ind2_610 == "7":
+    if ind2_610 == "7" and authority is not None:
         f_610 = f"""<subfield code="2">{authority}</subfield>"""
     else:
         f_610 = ""
@@ -3175,7 +3275,8 @@ def ead2marc_610(name):
         a_610 = f"""<subfield code="a">{a_content}</subfield>"""
 
     # PRINT 610 FIELD
-    if authority == "lcnaf" or authority == "viaf":
+    # (This portion of code was troubleshot utilizing Claude Opus 4.6)
+    if authority in ("lcnaf", "viaf") and authority_610_str is not None:
         field_610_str_nb = authority_610_str + e_610 + "</datafield>"
         field_610_xml = etree.fromstring(field_610_str_nb)
         field_610_str = etree.tostring(field_610_xml, pretty_print=True, encoding="unicode")
@@ -3286,7 +3387,7 @@ def ead2marc_630(title):
                         break
                 subdiv_subfields += f"""<subfield code="{subdiv_code}">{subdiv}</subfield>"""
             authority_630_str += subdiv_subfields
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError):
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError, IndexError):
             print(f"WARNING: Connection to lccn.loc.gov timed out for {authfile_no}. Constructing field manually.")
             authfile_no = None
             timeout_error = True
@@ -3323,7 +3424,7 @@ def ead2marc_630(title):
 
         # Subfield F
         if ind2_630 == "7":
-            f_630 = f"""<subfield code="2">{authority}</subfield>"""
+            f_630 = f"""<subfield code="2">{authority}</subfield>""" if authority is not None else ""
         else:
             f_630 = ""
 
@@ -3436,7 +3537,7 @@ def ead2marc_650(sh):
                         break
                 subdiv_subfields += f"""<subfield code="{subdiv_code}">{subdiv}</subfield>"""
             authority_650_str += subdiv_subfields
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError):
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError, IndexError):
             print(f"WARNING: Connection to lccn.loc.gov timed out for {authfile_no}. Constructing field manually.")
             authfile_no = None
             timeout_error = True
@@ -3473,7 +3574,7 @@ def ead2marc_650(sh):
 
         # Subfield F
         if ind2_650 == "7":
-            f_650 = f"""<subfield code="2">{authority}</subfield>"""
+            f_650 = f"""<subfield code="2">{authority}</subfield>""" if authority is not None else ""
         else:
             f_650 = ""
 
@@ -3586,7 +3687,7 @@ def ead2marc_651(geo):
                         break
                 subdiv_subfields += f"""<subfield code="{subdiv_code}">{subdiv}</subfield>"""
             authority_651_str += subdiv_subfields
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError):
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError, IndexError):
             print(f"WARNING: Connection to lccn.loc.gov timed out for {authfile_no}. Constructing field manually.")
             authfile_no = None
             timeout_error = True
@@ -3623,7 +3724,7 @@ def ead2marc_651(geo):
 
         # Subfield F
         if ind2_651 == "7":
-            f_651 = f"""<subfield code="2">{authority}</subfield>"""
+            f_651 = f"""<subfield code="2">{authority}</subfield>""" if authority is not None else ""
         else:
             f_651 = ""
 
@@ -3747,7 +3848,7 @@ def ead2marc_655(gf):
                         break
                 subdiv_subfields += f"""<subfield code="{subdiv_code}">{subdiv}</subfield>"""
             authority_655_str += subdiv_subfields
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError):
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError, IndexError):
             print(f"WARNING: Connection to lccn.loc.gov timed out for {authfile_no}. Constructing field manually.")
             authfile_no = None
             timeout_error = True
@@ -3784,7 +3885,7 @@ def ead2marc_655(gf):
 
         # Subfield F
         if ind2_655 == "7":
-            f_655 = f"""<subfield code="2">{authority}</subfield>"""
+            f_655 = f"""<subfield code="2">{authority}</subfield>""" if authority is not None else ""
         else:
             f_655 = ""
 
@@ -3833,7 +3934,7 @@ def ead2marc_656(occ):
     a_656 = f"""<subfield code="a">{occ_clean}</subfield>"""
 
     # Subfield F
-    f_656 = f"""<subfield code="2">{authority}</subfield>"""
+    f_656 = f"""<subfield code="2">{authority}</subfield>""" if authority is not None else ""
 
     # PRINT 656 FIELD
     # (This portion of code was troubleshot using Claud Opus 4.5)
@@ -3865,7 +3966,7 @@ def ead2marc_657(funct):
     a_657 = f"""<subfield code="a">{funct_clean}</subfield>"""
 
     # Subfield F
-    f_657 = f"""<subfield code="2">{authority}</subfield>"""
+    f_657 = f"""<subfield code="2">{authority}</subfield>""" if authority is not None else ""
 
     # PRINT 657 FIELD
     # (This portion of code was troubleshot using Claud Opus 4.5)
@@ -3980,6 +4081,7 @@ def ead2marc_690(raw_root):
 def ead2marc_700(name):
     a_alpha = []
     d_num = []
+    authority_700_str = None
     '''Creates 700 (added entry personal name) with authority validation'''
 
     # Check if name is associated with an authority file
@@ -4050,7 +4152,7 @@ def ead2marc_700(name):
             authority_700_str = authority_700_str.replace('tag="100"', 'tag="700"')
             # (This portion of code was generated utilizing Claude Opus 4.6)
             authority_700_str = authority_700_str.replace('tag="110"', 'tag="710"')
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError):
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError, IndexError):
             print(f"WARNING: Connection to lccn.loc.gov timed out for {authfile_no}. Constructing field manually.")
             authority = None
             timeout_error = True
@@ -4090,7 +4192,7 @@ def ead2marc_700(name):
                 authority_700_str = authority_700_str.replace('tag="100"', 'tag="700"')
                 # (This portion of code was generated utilizing Claude Opus 4.6)
                 authority_700_str = authority_700_str.replace('tag="110"', 'tag="710"')
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError):
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError, IndexError):
                 print(f"WARNING: Connection to lccn.loc.gov timed out for {lc_id}. Constructing field manually.")
                 authority = None
                 timeout_error = True
@@ -4130,6 +4232,11 @@ def ead2marc_700(name):
                 viaf_subfields += f'<subfield code="d">{viaf_d_content}</subfield>'
             authority_700_str = f'<datafield tag="700" ind1="{viaf_ind1}" ind2=" ">{viaf_subfields}'
     else:
+        authority = None
+
+    # If authority fetch failed, reset authority so manual construction runs
+    # (This portion of code was generated utilizing Claude Opus 4.6)
+    if authority in ("lcnaf", "viaf") and authority_700_str is None:
         authority = None
 
     # INDICATORS
@@ -4193,7 +4300,8 @@ def ead2marc_700(name):
         a_700 = f"""<subfield code="a">{a_content}</subfield>"""
 
     # PRINT 700 FIELD
-    if authority == "lcnaf" or authority == "viaf":
+    # (This portion of code was troubleshot utilizing Claude Opus 4.6)
+    if authority in ("lcnaf", "viaf") and authority_700_str is not None:
         field_700_str_nb = authority_700_str + e_700 + "</datafield>"
         field_700_xml = etree.fromstring(field_700_str_nb)
         field_700_str = etree.tostring(field_700_xml, pretty_print=True, encoding="unicode")
@@ -4220,6 +4328,7 @@ def ead2marc_700(name):
 
 
 def ead2marc_710(name):
+    authority_710_str = None
     '''Creates 710 (added entry corporate name) with authority validation'''
 
     # Check if main name is associated with an authority file
@@ -4283,7 +4392,7 @@ def ead2marc_710(name):
             # Change tag from 110 to 710
             # (This portion of code was generated utilizing Claude Opus 4.5)
             authority_710_str = authority_710_str.replace('tag="110"', 'tag="710"')
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError):
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError, IndexError):
             print(f"WARNING: Connection to lccn.loc.gov timed out for {authfile_no}. Constructing field manually.")
             authority = None
             timeout_error = True
@@ -4318,7 +4427,7 @@ def ead2marc_710(name):
                 # Change tag from 110 to 710
                 # (This portion of code was generated utilizing Claude Opus 4.5)
                 authority_710_str = authority_710_str.replace('tag="110"', 'tag="710"')
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError):
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError, IndexError):
                 print(f"WARNING: Connection to lccn.loc.gov timed out for {lc_id}. Constructing field manually.")
                 authority = None
                 timeout_error = True
@@ -4333,6 +4442,11 @@ def ead2marc_710(name):
             viaf_subfields = f'<subfield code="a">{viaf_main_heading}</subfield>'
             authority_710_str = f'<datafield tag="710" ind1="2" ind2=" ">{viaf_subfields}'
     else:
+        authority = None
+
+    # If authority fetch failed, reset authority so manual construction runs
+    # (This portion of code was generated utilizing Claude Opus 4.6)
+    if authority in ("lcnaf", "viaf") and authority_710_str is None:
         authority = None
 
     # INDICATORS
@@ -4363,7 +4477,8 @@ def ead2marc_710(name):
         a_710 = f"""<subfield code="a">{a_content}</subfield>"""
 
     # PRINT 710 FIELD
-    if authority == "lcnaf" or authority == "viaf":
+    # (This portion of code was troubleshot utilizing Claude Opus 4.6)
+    if authority in ("lcnaf", "viaf") and authority_710_str is not None:
         field_710_str_nb = authority_710_str + e_710 + "</datafield>"
         field_710_xml = etree.fromstring(field_710_str_nb)
         field_710_str = etree.tostring(field_710_xml, pretty_print=True, encoding="unicode")
@@ -4575,15 +4690,60 @@ def ead2marc_008(raw):
     p0to5 = "     "
 
     # Positions 6, 7-10, and 11-14
-    if level == "item":
-        if len(unitdates_list) == 0:
-            p6 = "n"
-            p7to10 = "uuuu"
-            p11to14 = "uuuu"
-        elif len(unitdates_list) == 1:
-            unitdate = unitdates_list[0]
+    if len(unitdates_list) == 0:
+        p6 = "n"
+        p7to10 = "uuuu"
+        p11to14 = "uuuu"
+    elif len(unitdates_list) == 1:
+        unitdate = unitdates_list[0]
+        is_daterange = unitdate.xpath(".//*[local-name()='daterange']")
+        if not is_daterange and level == "item":
+            datesingle_raw = unitdate.xpath(".//*[local-name()='datesingle']")[0]
+            date_clean = datesingle_raw.attrib['standarddate']
+            date_clean = html.escape(date_clean)
+            p6 = "s"
+            p7to10 = date_clean
+            p11to14 = "    "
+        else:
+            fromdate_raw = unitdate.xpath(".//*[local-name()='fromdate']")[0]
+            fromdate_clean = fromdate_raw.attrib['standarddate']
+            fromdate_clean = html.escape(fromdate_clean)
+            todate_raw = unitdate.xpath(".//*[local-name()='todate']")[0]
+            todate_clean = todate_raw.attrib['standarddate']
+            todate_clean = html.escape(todate_clean)
+            p6 = "i"
+            p7to10 = fromdate_clean
+            p11to14 = todate_clean
+    elif len(unitdates_list) > 1:
+        date_list = []
+        for unitdate in unitdates_list:
             is_daterange = unitdate.xpath(".//*[local-name()='daterange']")
             if is_daterange:
+                fromdate_raw = unitdate.xpath(".//*[local-name()='fromdate']")[0]
+                fromdate_clean = fromdate_raw.attrib['standarddate']
+                fromdate_clean = html.escape(fromdate_clean)
+                todate_raw = unitdate.xpath(".//*[local-name()='todate']")[0]
+                todate_clean = todate_raw.attrib['standarddate']
+                todate_clean = html.escape(todate_clean)
+                date_list.append(fromdate_clean)
+                date_list.append(todate_clean)
+            else:
+                datesingle_raw = unitdate.xpath(".//*[local-name()='datesingle']")[0]
+                date_clean = datesingle_raw.attrib['standarddate']
+                date_clean = html.escape(date_clean)
+                date_list.append(date_clean)
+        unq_dates = len(set(date_list))
+        if unq_dates == 1:
+            unitdate = unitdates_list[0]
+            is_daterange = unitdate.xpath(".//*[local-name()='daterange']")
+            if not is_daterange and level == "item":
+                datesingle_raw = unitdate.xpath(".//*[local-name()='datesingle']")[0]
+                date_clean = datesingle_raw.attrib['standarddate']
+                date_clean = html.escape(date_clean)
+                p6 = "s"
+                p7to10 = date_clean
+                p11to14 = "    "
+            else:
                 fromdate_raw = unitdate.xpath(".//*[local-name()='fromdate']")[0]
                 fromdate_clean = fromdate_raw.attrib['standarddate']
                 fromdate_clean = html.escape(fromdate_clean)
@@ -4593,56 +4753,10 @@ def ead2marc_008(raw):
                 p6 = "i"
                 p7to10 = fromdate_clean
                 p11to14 = todate_clean
-            else:
-                datesingle_raw = unitdate.xpath(".//*[local-name()='datesingle']")[0]
-                date_clean = datesingle_raw.attrib['standarddate']
-                date_clean = html.escape(date_clean)
-                p6 = "s"
-                p7to10 = date_clean
-                p11to14 = "    "
-        elif len(unitdates_list) > 1:
-            date_list = []
-            for unitdate in unitdates_list:
-                is_daterange = unitdate.xpath(".//*[local-name()='daterange']")
-                if is_daterange:
-                    fromdate_raw = unitdate.xpath(".//*[local-name()='fromdate']")[0]
-                    fromdate_clean = fromdate_raw.attrib['standarddate']
-                    fromdate_clean = html.escape(fromdate_clean)
-                    todate_raw = unitdate.xpath(".//*[local-name()='todate']")[0]
-                    todate_clean = todate_raw.attrib['standarddate']
-                    todate_clean = html.escape(todate_clean)
-                    date_list.append(fromdate_clean)
-                    date_list.append(todate_clean)
-                else:
-                    datesingle_raw = unitdate.xpath(".//*[local-name()='datesingle']")[0]
-                    date_clean = datesingle_raw.attrib['standarddate']
-                    date_clean = html.escape(date_clean)
-                    date_list.append(date_clean)
-            unq_dates = len(set(date_list))
-            if unq_dates == 1:
-                unitdate = unitdates_list[0]
-                is_daterange = unitdate.xpath(".//*[local-name()='daterange']")
-                if is_daterange:
-                    fromdate_raw = unitdate.xpath(".//*[local-name()='fromdate']")[0]
-                    fromdate_clean = fromdate_raw.attrib['standarddate']
-                    fromdate_clean = html.escape(fromdate_clean)
-                    todate_raw = unitdate.xpath(".//*[local-name()='todate']")[0]
-                    todate_clean = todate_raw.attrib['standarddate']
-                    todate_clean = html.escape(todate_clean)
-                    p6 = "i"
-                    p7to10 = fromdate_clean
-                    p11to14 = todate_clean
-                else:
-                    datesingle_raw = unitdate.xpath(".//*[local-name()='datesingle']")[0]
-                    date_clean = datesingle_raw.attrib['standarddate']
-                    date_clean = html.escape(date_clean)
-                    p6 = "s"
-                    p7to10 = date_clean
-                    p11to14 = "    "
-            else:
-                p6 = "i"
-                p7to10 = min(date_list)
-                p11to14 = max(date_list)
+        else:
+            p6 = "i"
+            p7to10 = min(date_list)
+            p11to14 = max(date_list)
 
     # Positions 15-17
     # NOTE: country of publication (p15to17) is not currently supported. Set to static "xx ".
@@ -4964,7 +5078,7 @@ def ead2marc_rec(raw):
     oclc_comment = oclc_check(raw)
 
     # 0xx fields
-    field__02x_05x_08x_xml_list = ead2marc_02x_05x_08x(raw)
+    field__02x_03x_05x_08x_xml_list = ead2marc_02x_03x_05x_08x(raw)
     field_040_xml_list = ead2marc_040()
     field_041_xml_list, all_langcodes = ead2marc_041(raw)
     field_049_xml_list = ead2marc_049()
@@ -5019,7 +5133,7 @@ def ead2marc_rec(raw):
     rec_list = []
     for field_list in [
         leader_xml_list, field_008_xml_list, 
-        field_040_xml_list, field_041_xml_list, field_049_xml_list, field__02x_05x_08x_xml_list, field_099_xml_list,
+        field_040_xml_list, field_041_xml_list, field_049_xml_list, field__02x_03x_05x_08x_xml_list, field_099_xml_list,
         field_100_110_xml_list,
         field_245_xml_list, field_264_xml_list,
         field_300_xml_list, field_336_xml_list, field_337_xml_list,
@@ -5078,7 +5192,11 @@ if 'http://ead3.archivists.org/schema/' in root.tag:
 
     # Get target <c> tag(s)
     # (This portion of code was generated utilizing Claude Opus 4.6)
-    parse_type = input('Enter "1" to parse by ID or "2" to parse by hierarchy level: ').strip()
+    parse_type = ""
+    while parse_type not in ("1", "2"):
+        parse_type = input('Enter "1" to parse by ID or "2" to parse by hierarchy level: ').strip()
+        if parse_type not in ("1", "2"):
+            print(f'Invalid input: "{parse_type}". Please enter "1" or "2".')
 
     if parse_type == "1":
         target_id = input("Enter aspace id of target <c>: ").strip()
@@ -5089,7 +5207,13 @@ if 'http://ead3.archivists.org/schema/' in root.tag:
     elif parse_type == "2":
         target_level = input("Enter target hierarchy level (collection, item, etc.): ").strip()
         if target_level == "collection":
-            result = root.xpath("//*[local-name()='archdesc']")
+            # Get archdesc but exclude <dsc> subtree (contains component-level data)
+            # (This portion of code was generated utilizing Claude Opus 4.6)
+            archdesc = root.xpath("//*[local-name()='archdesc']")[0]
+            archdesc_copy = deepcopy(archdesc)
+            for dsc in archdesc_copy.xpath(".//*[local-name()='dsc']"):
+                dsc.getparent().remove(dsc)
+            result = [archdesc_copy]
         else:
             result = root.xpath(
                 "//*[(local-name()='c' or (starts-with(local-name(), 'c') and string-length(local-name()) <= 3)) and @level=$t_lvl]",
@@ -5118,7 +5242,9 @@ if 'http://ead3.archivists.org/schema/' in root.tag:
     # Loop through results, set globals for each, and run ead2marc_rec
     # (This portion of code was generated utilizing Claude Opus 4.6)
     all_rec_xml_list = []
-    for c0_raw in result:
+    total_start_time = time.time()
+    for rec_index, c0_raw in enumerate(result, 1):
+        rec_start_time = time.time()
 
         vaid_clean = ""
         vaid_fetch = root.xpath(".//*[local-name()='recordid']")
@@ -5215,10 +5341,17 @@ if 'http://ead3.archivists.org/schema/' in root.tag:
         rec_xml = ead2marc_rec(c0_raw)
         if rec_xml is not None:
             all_rec_xml_list.append(rec_xml)
+        # (This portion of code was generated utilizing Claude Opus 4.6)
+        rec_elapsed = time.time() - rec_start_time
+        print(f"Record {rec_index}/{len(result)} completed in {rec_elapsed:.1f}s")
+
+    total_elapsed = time.time() - total_start_time
+    print(f"\nAll {len(result)} records processed in {total_elapsed:.1f}s (avg {total_elapsed/len(result):.1f}s per record)")
 
     # Wrap all records in a <marc:collection> element and output
     # (This portion of code was generated utilizing Claude Opus 4.6)
     if all_rec_xml_list:
+        print("All records processed. Compiling into a record collection.")
         collection = etree.Element(
             "{http://www.loc.gov/MARC21/slim}collection",
             nsmap={
