@@ -6,6 +6,7 @@ import pycallnumber as pycn
 import unicodedata
 from copy import deepcopy
 from lxml import etree
+from datetime import datetime
 # import collections
 
 # Rate-limited wrapper for requests to loc.gov (max 10 requests/minute)
@@ -1718,6 +1719,50 @@ def ead2marc_245(raw):
     return field_245_xml_list, title_clean
 
 
+def ead2marc_246(raw):
+    '''Creates 246 fields following Lilly Library and IU Archives conventions (collection-level only)'''
+    
+    field_245_xml_list, title_clean = ead2marc_245(raw)
+    iuarch_title_clean = ""
+    lilly_title_clean = ""
+    title_lower = title_clean.lower()
+    level = raw.attrib['level']
+    field_246_xml_list = []
+    if level == "collection" and title_lower.endswith("collection]"):
+        iuarch_title_clean = re.sub(r"collection]", "papers]", title_clean, flags=re.I)
+        lilly_title_clean = re.sub(r"collection]", "mss.]", title_clean, flags=re.I)
+
+        # 246 Field #1 (IU Archives Convention)
+        if iuarch_title_clean:
+            # INDICATORS
+            # Indicator 1 is constant (3)
+            # Indicator 2 is constant (3)
+
+            # Subfield A
+            a_246_iuarch = f"""<subfield code="a">{iuarch_title_clean}</subfield>"""
+
+            # Compile field
+            field_246_str_nb_iuarch = """<datafield tag="246" ind1="3" ind2="3">""" + a_246_iuarch + "</datafield>"
+            field_246_xml_iuarch = etree.fromstring(field_246_str_nb_iuarch)
+            field_246_xml_list.append(field_246_xml_iuarch)
+
+        # 246 Field #2 (Lilly Library Convention)
+        if lilly_title_clean:
+            # INDICATORS
+            # Indicator 1 is constant (3)
+            # Indicator 2 is constant (3)
+
+            # Subfield A
+            a_246_lilly = f"""<subfield code="a">{lilly_title_clean}</subfield>"""
+
+            # Compile field
+            field_246_str_nb_lilly = """<datafield tag="246" ind1="3" ind2="3">""" + a_246_lilly + "</datafield>"
+            field_246_xml_lilly = etree.fromstring(field_246_str_nb_lilly)
+            field_246_xml_list.append(field_246_xml_lilly)
+
+        return field_246_xml_list
+
+
 def ead2marc_264(raw):
     '''Creates 264 (production/publication/distribution date) from unitdate elements'''
 
@@ -1736,6 +1781,8 @@ def ead2marc_264(raw):
             # (This portion of code was partially revised utilizing ChatGPT 5.2)
             # Get date label (datechar)
             datechar_clean = (unitdate.get("datechar")).strip()
+            if unitdate.get("certainty"):
+                certainty_clean = (unitdate.get("certainty")).strip()
 
             # Set indicator 2 based on datechar
             if datechar_clean in ['broadcast', 'publication']:
@@ -1755,8 +1802,21 @@ def ead2marc_264(raw):
                 qualifier_open = "[not after "
                 qualifier_close = "]"
             else:
-                qualifier_open = ""
-                qualifier_close = ""
+                # If unitdate has certainty specified, add qualifiers
+                if unitdate.get("certainty"):
+                    if certainty_clean == "approximate":
+                        qualifier_close = "approximately"
+                        qualifier_open = ""
+                    elif certainty_clean == "inferred":
+                        qualifier_close = "["
+                        qualifier_open = "]"
+                    elif certainty_clean == "questionable":
+                        qualifier_close = "["
+                        qualifier_open = "?]"
+                else:
+                    qualifier_close = ""
+                    qualifier_open = ""
+
             # Get date or daterange
             is_daterange = unitdate.xpath(".//*[local-name()='daterange']")
             if is_daterange:
@@ -1779,7 +1839,7 @@ def ead2marc_264(raw):
             # field_264_str = etree.tostring(field_264_xml, pretty_print=True, encoding="unicode")
             # print(field_264_str)
 
-        return field_264_xml_list
+    return field_264_xml_list
 
 
 def ead2marc_300(raw):
@@ -1791,6 +1851,7 @@ def ead2marc_300(raw):
     physdesc_list = raw.xpath(".//*[local-name()='physdesc']")
     field_300_xml_list = []
     consumed_physdescs = []
+    unittypes_f_list = ["box", "feet", "file", "folder", "foot", "page", "volume"]
 
     if physdesc_list or physdesc_structured_list:
         # If physdesc or phydescstructured elements exist, proceeds with processing
@@ -1825,12 +1886,22 @@ def ead2marc_300(raw):
                     a_300_qu = f"""<subfield code="a">{quantity_clean}</subfield>"""
 
                     # Subfield F
-                    f_300 = f"""<subfield code="f">{unittype_clean}</subfield>"""
+                    f_field = False
+                    for utype in unittypes_f_list:
+                        if utype in unittype_clean:
+                            f_field = True
+                    if f_field:
+                        a_300_qu = f"""<subfield code="a">{quantity_clean}</subfield>"""
+                        f_300 = f"""<subfield code="f">{unittype_clean}</subfield>"""
+                    else:
+                        a_300_qu = f"""<subfield code="a">{quantity_clean} {unittype_clean}</subfield>"""
+                        f_300 = ""
                 if pds.xpath(".//*[local-name()='dimensions']"):
                     dimensions_raw = pds.xpath(".//*[local-name()='dimensions']")[0]
                     dimensions_clean = html.escape(dimensions_raw.xpath("string()").strip())
 
                     # Subfield C
+                    # TODO: Check if ending in "ft" or "in" and add period if so (no period after cm)
                     c_300 = f"""<subfield code="c">{dimensions_clean}</subfield>"""
 
             # Get paired following physdesc sibling (e.g. container_summary)
@@ -1851,7 +1922,6 @@ def ead2marc_300(raw):
             field_300_xml_list.append(field_300_xml)
             # field_300_str = etree.tostring(field_300_xml, pretty_print=True, encoding="unicode")
             # print(field_300_str)
-
     else:
         # If no physdesc or phydescstructured elements exist, fallback is $a 1 [hierarchy level]
         # PRINT 300 FIELD
@@ -2198,17 +2268,16 @@ def ead2marc_351(raw):
 
             # SUBFIELDS
             # Subfield A
-            arrnote_clean = arrnote.xpath("string()").strip(".")
+            # Strips heads from notes if there are any
+            arrnote_cleanish = arrnote.xpath("string()").strip(".")
             arrnote_head_list = arrnote.xpath(".//*[local-name()='head']")
-
             if arrnote_head_list:
                 arrnote_head = arrnote_head_list[0].xpath("string()").strip(".")
                 arrnote_clean = arrnote_clean.replace(arrnote_head, "")
             # (This portion of code was generated utilizing Claude Opus 4.6)
             arrnote_clean = " ".join(arrnote_clean.split())
             arrnote_clean = html.escape(arrnote_clean)
-
-        a_351 = f"""<subfield code="a">{arrnote_clean}</subfield>"""
+            a_351 = f"""<subfield code="a">{arrnote_clean}</subfield>"""
 
         # PRINT 351 FIELD
         field_351_str_nb = """<datafield tag="351" ind1=" " ind2=" ">""" + a_351 + "</datafield>"
@@ -2347,6 +2416,7 @@ def ead2marc_520(raw):
 
             # SUBFIELDS
             # Subfield A
+            # Strips heads from notes if there are any
             snote_clean = snote.xpath("string()").strip(".")
             snote_head_list = snote.xpath(".//*[local-name()='head']")
             if snote_head_list:
@@ -2355,6 +2425,7 @@ def ead2marc_520(raw):
             # (This portion of code was generated utilizing Claude Opus 4.6)
             snote_clean = " ".join(snote_clean.split())
             snote_clean = html.escape(snote_clean)
+
             a_520 = f"""<subfield code="a">{snote_clean}</subfield>"""
 
             # PRINT 520 FIELD
@@ -4647,8 +4718,8 @@ def ead2marc_leader(raw):
     p10 = "2"
     p11 = "2"
     p12to16 = "00000"
-    p17 = "5"
-    p18 = "u"
+    p17 = "7"
+    p18 = "i"
     p19 = " "
     p20to23 = "4500"
 
@@ -4687,9 +4758,10 @@ def ead2marc_008(raw):
     unitdates_list = raw.xpath(".//*[starts-with(local-name(), 'unitdate')]")
 
     # Positions 0-5
-    p0to5 = "     "
+    p0to5 = datetime.now().strftime("%y%m%d")
 
     # Positions 6, 7-10, and 11-14
+    # TODO: Check for copyright dates, exclude copyright dates from date list if there are multiple
     if len(unitdates_list) == 0:
         p6 = "n"
         p7to10 = "uuuu"
@@ -4709,11 +4781,14 @@ def ead2marc_008(raw):
             fromdate_clean = fromdate_raw.attrib['standarddate']
             fromdate_clean = html.escape(fromdate_clean)
             todate_raw = unitdate.xpath(".//*[local-name()='todate']")[0]
-            todate_clean = todate_raw.attrib['standarddate']
-            todate_clean = html.escape(todate_clean)
             p6 = "i"
             p7to10 = fromdate_clean
-            p11to14 = todate_clean
+            if todate_raw:
+                todate_clean = todate_raw.attrib['standarddate']
+                todate_clean = html.escape(todate_clean)
+                p11to14 = todate_clean
+            else:
+                p11to14 = "    "
     elif len(unitdates_list) > 1:
         date_list = []
         for unitdate in unitdates_list:
@@ -4799,6 +4874,7 @@ def ead2marc_008(raw):
         for ills_keyword in ills_keyword_dict.keys():
             if ills_keyword in field_300_str:
                 ills_raw = ills_keyword_dict[ills_keyword] + ills_raw
+                #TODO: Alphabetize by code before slicing
             p18to21 = ills_raw[:5]
         # Position 22
         p22 = " "
@@ -4817,7 +4893,7 @@ def ead2marc_008(raw):
         # Position 32
         p32 = " "
         # Position 33
-        p33 = "u"
+        p33 = "0"
         # Position 34
         p34 = " "
         # Construct positions 18-34
@@ -4969,7 +5045,7 @@ def ead2marc_008(raw):
         p18to34 = f"{p18to22}{p23}{p24to34}"
     elif pformat == "rec":
         # Positions 18-19
-        p18to19 = "uu"
+        p18to19 = "  "
         # Position 20
         p20 = "n"
         # Position 21
@@ -4992,7 +5068,7 @@ def ead2marc_008(raw):
         p18to34 = f"{p18to19}{p20}{p21}{p22}{p23}{p24to29}{p30to31}{p32}{p33}{p34}"
     elif pformat == "sco":
         # Positions 18-19
-        p18to19 = "uu"
+        p18to19 = "  "
         # Position 20
         p20 = "u"
         # Position 21
@@ -5073,7 +5149,6 @@ def ead2marc_008(raw):
 def ead2marc_rec(raw):
     '''Runs all MARC field functions in notebook order and assembles a complete record'''
     
-    rec_counter = 0
     # Comments
     oclc_comment = oclc_check(raw)
 
@@ -5082,13 +5157,14 @@ def ead2marc_rec(raw):
     field_040_xml_list = ead2marc_040()
     field_041_xml_list, all_langcodes = ead2marc_041(raw)
     field_049_xml_list = ead2marc_049()
-    field_099_xml_list = ead2marc_099(root, raw)
+    # field_099_xml_list = ead2marc_099(root, raw)
 
     # 1xx fields
     field_100_110_xml_list = ead2marc_100_110(creator_names_list)
 
     # 2xx fields
     field_245_xml_list, title_clean = ead2marc_245(raw)
+    field_246_xml_list = ead2marc_246(raw)
     field_264_xml_list = ead2marc_264(raw)
 
     # 3xx fields
@@ -5133,9 +5209,10 @@ def ead2marc_rec(raw):
     rec_list = []
     for field_list in [
         leader_xml_list, field_008_xml_list, 
-        field_040_xml_list, field_041_xml_list, field_049_xml_list, field__02x_03x_05x_08x_xml_list, field_099_xml_list,
+        field_040_xml_list, field_041_xml_list, field_049_xml_list, field__02x_03x_05x_08x_xml_list, 
+        # field_099_xml_list,
         field_100_110_xml_list,
-        field_245_xml_list, field_264_xml_list,
+        field_245_xml_list, field_246_xml_list, field_264_xml_list,
         field_300_xml_list, field_336_xml_list, field_337_xml_list,
         field_338_xml_list, field_351_xml_list,
         field_500_xml_list, field_506_xml_list, field_520_xml_list,
@@ -5171,9 +5248,12 @@ def ead2marc_rec(raw):
     # (This portion of code was generated utilizing Claude Opus 4.6)
     rec_str = re.sub(r'<(marc:datafield) ind1="(.)" ind2="(.)" tag="(\d+)">', r'<\1 tag="\4" ind1="\2" ind2="\3">', rec_str)
     rec_xml = etree.fromstring(rec_str)
-    rec_counter += 1
-    print(f"""Record {rec_counter} of {len(result)} complete! ({title_clean})""")
     # print(rec_str)
+
+    # Print progress message
+    # (This portion of code was generated utilizing Claude Opus 4.6)
+    rec_elapsed = time.time() - rec_start_time
+    print(f"Record {rec_index}/{len(result)} completed in {rec_elapsed:.1f}s ({title_clean})")
 
     return rec_xml
 
@@ -5341,9 +5421,6 @@ if 'http://ead3.archivists.org/schema/' in root.tag:
         rec_xml = ead2marc_rec(c0_raw)
         if rec_xml is not None:
             all_rec_xml_list.append(rec_xml)
-        # (This portion of code was generated utilizing Claude Opus 4.6)
-        rec_elapsed = time.time() - rec_start_time
-        print(f"Record {rec_index}/{len(result)} completed in {rec_elapsed:.1f}s")
 
     total_elapsed = time.time() - total_start_time
     print(f"\nAll {len(result)} records processed in {total_elapsed:.1f}s (avg {total_elapsed/len(result):.1f}s per record)")
@@ -5369,7 +5446,6 @@ if 'http://ead3.archivists.org/schema/' in root.tag:
         # Reorder any remaining out-of-order attributes to tag, ind1, ind2
         # (This portion of code was generated utilizing Claude Opus 4.6)
         collection_str = re.sub(r'<(marc:datafield) ind1="(.)" ind2="(.)" tag="(\d+)">', r'<\1 tag="\4" ind1="\2" ind2="\3">', collection_str)
-        from datetime import datetime
         timestamp = datetime.now().strftime("%Y%m%d_%H%M")
         with open(f"C:/Users/yello/OneDrive/Documents/EAD2MARC/EAD2MARC_workzone/test_exports/collectiontest_{timestamp}.xml", "w", encoding="UTF-8") as outfile:
             outfile.write(collection_str)

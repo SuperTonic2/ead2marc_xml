@@ -2,28 +2,17 @@
 
 ## Current To-Do's
 
-- [ ] Check leader with L
-  - [ ] Should Elvl (p17) be "3", "5", or "7" (or something else)?
-  - [ ] Shold Desc be "u" or "i" (or something else)?
-- [ ] Check 008 with L
-  - [ ] Is " " correct character for noting blank characters?
-  - [ ] What is supposed to go in 008 bytes 00 to 05 ??
-  - [ ] Is current approach for positions 18-34 (for positions where accurate population based on EAD alone is not possible, codes are set statically to the default code, "not specified", or "unknown") appropriate?
-- [ ] Check with L if fields 006 and/or 007 is needed (at a glance seems like it would be tough to code and aren't listed on the requirements for minimum records PPT)
-- [ ] Check with L if having MC and VAE numbers in both 035 and 099 is appropriate (see TODO in v1.81.py)
+- [ ] UPDATE PRELIM FINDING AID NOTES
+  - [ ] PROCESSING INFORMATION: Change "Finding aid created..." to "Preliminary finding aid created..."
+  - [ ] Move "This is a preliminary finding aid. Processing is ongoing. Additional details will be added as processing is completed." from Finding Aid Note to Processing Information Note
+- [ ] CHECK BEVERSDORF FOR MISTI
 
-- [ ] Check collection-level exports and refine against constant data workform
-  - [X] Add 035 for collection-level VAE and MC numbers
-  - [ ] Add 246 fiels for alternate collection title nameforms
-  - [ ] Incorporate certainty into date expression in 264
-        (make sure this won't break other stuff like DtSt in leader/008)
-  - [ ] Add ISBD punctuation on end of 300 (period at end)
-  - [ ] Consider removing subfield f in 300 and putting everything in subfield a (see bibformats)
-  - [ ] Fix all caps series names in 351 and 520
-  - [ ] HTML escape 540? (and other 500 notes?s)
-  - [ ] Add additional subfield support to 541 field
-  - [ ] Check leader and 008
+- [ ] Check with L if 541 needs to be broken down into more subfields (see bibformats)
+
+- [ ] Address TODOs in .py doc
+- [ ] Look into incorporating HTML to EAD tag conversion (ex < i > and < em > HTML tags to < title render = italic > EAD tag)
 - [ ] Check item-level test exports and debug any issues
+- [ ] Run full item-level test export and send to Laikin to review
 - [ ] Write more to-do’s
 
 - [ ] Check ISBD punctuation
@@ -155,6 +144,24 @@
   - [X] When final marc xml collection is being compiled (already created manually)
   - [X] Time elapsed between record creation
   - [X] Total time elapsed from start to finish
+- [X] Check leader with L
+  - [X] Should Elvl (p17) be "3", "5", or "7" (or something else)? (A: 7)
+  - [X] Shold Desc be "u" or "i" (or something else)? (A: changed from u to i)
+- [X] Check 008 with L
+  - [X] Is " " correct character for noting blank characters?
+  - [X] What is supposed to go in 008 bytes 00 to 05 ?? (A: Put date of generation)
+  - [X] Is current approach for positions 18-34 (for positions where accurate population based on EAD alone is not possible, codes are set statically to the default code, "not specified", or "unknown") appropriate?
+- [X] Check with L if fields 006 and/or 007 is needed (at a glance seems like it would be tough to code and aren't listed on the requirements for minimum records PPT)
+- [X] Check with L if having MC and VAE numbers in both 035 and 099 is appropriate (see TODO in v1.81.py)
+- [X] Check with L if ISBD punctuation on 300 field is correct
+- [X] Check collection-level exports and refine against constant data workform
+  - [X] Add 035 for collection-level VAE and MC numbers
+  - [X] Add 246 fields for alternate collection title nameforms
+  - [X] Incorporate certainty into date expression in 264
+        (make sure this won't break other stuff like DtSt in leader/008)
+  - [X] Consider removing subfield f in 300 and putting everything in subfield a (see bibformats)
+  - [X] HTML escape 540? (and other 500 notes?)
+  - [X] Check leader and 008
 
 ## Major Claude Edits
 
