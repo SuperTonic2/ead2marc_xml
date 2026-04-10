@@ -3,14 +3,13 @@
 ## Current To-Do's
 
 - [ ] UPDATE PRELIM FINDING AID NOTES
-  - [ ] PROCESSING INFORMATION: Change "Finding aid created..." to "Preliminary finding aid created..."
-  - [ ] Move "This is a preliminary finding aid. Processing is ongoing. Additional details will be added as processing is completed." from Finding Aid Note to Processing Information Note
-- [ ] CHECK BEVERSDORF FOR MISTI
+  - [ ] Check if processing note order is correct on A. Peter Brown or Al Cobine (multiple processing notes vs. one multipart processing note) and update note order for all other collections if so
+- [ ] Finish processing Cobine
+- [ ] Rehouse Beversdorf
 
 - [ ] Check with L if 541 needs to be broken down into more subfields (see bibformats)
 
 - [ ] Address TODOs in .py doc
-- [ ] Look into incorporating HTML to EAD tag conversion (ex < i > and < em > HTML tags to < title render = italic > EAD tag)
 - [ ] Check item-level test exports and debug any issues
 - [ ] Run full item-level test export and send to Laikin to review
 - [ ] Write more to-do’s
