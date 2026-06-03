@@ -1901,7 +1901,9 @@ def ead2marc_300(raw):
                     dimensions_clean = html.escape(dimensions_raw.xpath("string()").strip())
 
                     # Subfield C
-                    # TODO: Check if ending in "ft" or "in" and add period if so (no period after cm)
+                    # (This portion of code was troubleshot utilizing Claude Opus 4.7)
+                    if dimensions_clean[-2:] in ("ft", "in"):
+                        dimensions_clean = dimensions_clean + "."
                     c_300 = f"""<subfield code="c">{dimensions_clean}</subfield>"""
 
             # Get paired following physdesc sibling (e.g. container_summary)
@@ -2269,7 +2271,8 @@ def ead2marc_351(raw):
             # SUBFIELDS
             # Subfield A
             # Strips heads from notes if there are any
-            arrnote_cleanish = arrnote.xpath("string()").strip(".")
+            # (This portion of code was troubleshot utilizing Claude Opus 4.7)
+            arrnote_clean = arrnote.xpath("string()").strip(".")
             arrnote_head_list = arrnote.xpath(".//*[local-name()='head']")
             if arrnote_head_list:
                 arrnote_head = arrnote_head_list[0].xpath("string()").strip(".")
@@ -4871,11 +4874,13 @@ def ead2marc_008(raw):
             "map": "b",
             "illustration": "a",
         }
-        for ills_keyword in ills_keyword_dict.keys():
+        # (This portion of code was troubleshot utilizing Claude Opus 4.7)
+        codes_found = set()
+        for ills_keyword, code in ills_keyword_dict.items():
             if ills_keyword in field_300_str:
-                ills_raw = ills_keyword_dict[ills_keyword] + ills_raw
-                #TODO: Alphabetize by code before slicing
-            p18to21 = ills_raw[:5]
+                codes_found.add(code)
+        ills_raw = "".join(sorted(codes_found))
+        p18to21 = (ills_raw + "    ")[:4]
         # Position 22
         p22 = " "
         # Position 23

@@ -2,11 +2,7 @@
 
 ## Current To-Do's
 
-- [ ] UPDATE PRELIM FINDING AID NOTES
-  - [ ] Check if processing note order is correct on A. Peter Brown or Al Cobine (multiple processing notes vs. one multipart processing note) and update note order for all other collections if so
-- [ ] Finish processing Cobine
-- [ ] Rehouse Beversdorf
-
+- [ ] After MC122 batch completes, audit records with `uuuu` in 008 p7-14 against their EAD source — confirm whether plain `<unitdate>` text-only elements were the only date info present (if so, Option B text-parsing fallback may be worth implementing as v1.84)
 - [ ] Check with L if 541 needs to be broken down into more subfields (see bibformats)
 
 - [ ] Address TODOs in .py doc
@@ -163,6 +159,124 @@
   - [X] Check leader and 008
 
 ## Major Claude Edits
+
+### 2026-06-03: v1.83.py — Fix IndexError on Plain `<unitdate>` Text Elements
+
+**What was done:** Crash report on MC122 batch (records 41-60), record 11/20 throwing `IndexError: list index out of range` at line 4789 in `ead2marc_008`.
+
+**Root cause:** Line 4767's xpath `".//*[starts-with(local-name(), 'unitdate')]"` matched both `<unitdatestructured>` (the structured variant with `<datesingle>`/`<daterange>` children) AND plain `<unitdate>` (the EAD3 non-structured variant whose date is just text content with no children). Path A's filter at line 4773 preserves either variant since `datechar` is an attribute, not a child. When a plain `<unitdate>` reached the date-extraction code, the downstream `xpath(...)[0]` on `<datesingle>` or `<daterange>` returned an empty list, and `[0]` threw IndexError. All branches in the date block (lines 4785-4844) had the same vulnerability — record 11 just happened to hit the single-unitdate-single-date branch first.
+
+**Option A applied (minimal fix):** Changed the xpath to only match `<unitdatestructured>`:
+
+```python
+unitdates_list = raw.xpath(".//*[local-name()='unitdatestructured']")
+```
+
+Plain `<unitdate>` elements are now ignored by `ead2marc_008`. Records whose only date info is in plain `<unitdate>` form will get `p6=n`, `p7-14=uuuu` in 008. Data loss is bounded and recoverable — Option B (parse year from plain `<unitdate>` text content using existing `re.search(r'\b\d{4}\b', ...)` pattern) is the follow-up for v1.84 if MC122 audit shows meaningful data was lost.
+
+**Follow-up to-do added under Current To-Do's:** audit `uuuu` records against EAD source after the MC122 batch completes to quantify the impact.
+
+**Function affected:** `ead2marc_008` (file: EAD2MARC_workzone/EAD2MARCv1.83.py)
+
+---
+
+### 2026-06-03: v1.83.py — Distinguish Missing-Authority-ID from Connection Timeout in Notes
+
+**What was done:** The 10 authority-fetching functions (100, 110, 600, 610, 630, 650, 651, 655, 700, 710) emit an HTML comment when the LCNAF/VIAF fetch fails, but the message was always `<!-- NOTE: Authority {timeout_authfile_no} could not be fetched (connection timeout). Field was constructed manually. -->` — even when `timeout_authfile_no` was `None` (because the EAD record had no authority ID at all). Result: misleading `Authority None could not be fetched (connection timeout)` notes when the real cause was "no ID to look up, no fetch attempted."
+
+Replaced the `etree.Comment(...)` call across all 10 sites with a Python ternary:
+
+```python
+etree.Comment(
+    f" NOTE: Authority {timeout_authfile_no} could not be fetched (connection timeout). Field was constructed manually. "
+    if timeout_authfile_no
+    else " NOTE: Authority lookup skipped (no ID in EAD); field constructed manually. "
+)
+```
+
+Real timeouts (where `timeout_authfile_no` holds a valid LCNAF ID like `n 79100200`) still get the original "connection timeout" message; missing-ID cases get the new "lookup skipped (no ID in EAD)" message. Both still note that the field was constructed manually, so catalogers know to double-check.
+
+**Implementation note:** Used Edit's `replace_all=true` because the modified part of the line is identical across all 10 sites (only the `result_XXX.append(...)` variable name differs, which is *before* the changed expression). Single attribution comment added at the first site (`ead2marc_100`) noting the pattern applies to the other 9 functions identically; per-site attribution would have been redundant noise.
+
+**Functions affected:** `ead2marc_100`, `ead2marc_110`, `ead2marc_600`, `ead2marc_610`, `ead2marc_630`, `ead2marc_650`, `ead2marc_651`, `ead2marc_655`, `ead2marc_700`, `ead2marc_710`
+
+---
+
+### 2026-06-02: v1.83.py — Fix 856 URL Separator and Strip Trailing Whitespace from 555/856 $u
+
+**What was done:** Two related URL fixes in the finding-aid-link subfields, surfaced by reviewing the MC122 test export.
+
+1. **`ead2marc_856` $u missing separator:** Line `faid_uri = f"""https://archives.iu.edu/catalog/{vaid_clean}{cid_clean}"""` produced concatenated URLs like `.../catalog/VAE4896aspace_28d3...` (no separator between the VA collection ID and the ASpace component ID). User confirmed the correct IUL archives URL pattern uses `_` as a separator. Added `_` to the f-string.
+
+2. **Trailing whitespace in `$u` for 555 and 856:** Both `ead2marc_555` and `ead2marc_856` constructed their $u as `f"""<subfield code="u">{faid_uri} </subfield>"""` — note the trailing space before `</subfield>`. The space was there from the moment the functions were first written in v1.70 (confirmed via `git log -S` — not added later as a workaround). User confirmed via direct test that the trailing space breaks the URL: `archives.iu.edu/catalog/VAE4896_aspace_xxx%20` returns 404 (browsers URL-encode the space as %20). Removed the trailing space from both functions.
+
+**Functions affected:** `ead2marc_555`, `ead2marc_856` (file: EAD2MARC_workzone/EAD2MARCv1.83.py)
+
+---
+
+### 2026-06-02: v1.83.py — Fix 351 Multi-Note Loss and 500 Cross-Record Reference
+
+**What was done:** Two small fixes surfaced by a pre-MC122 bug scan.
+
+1. **`ead2marc_351` last-arrangement-note bug:** The `for arrnote in arrnote_list:` loop built `a_351` per iteration, but the `<datafield>` assembly (lines `field_351_str_nb = ...`, `etree.fromstring(...)`, `field_351_xml_list.append(...)`) was indented one level less and sat *outside* the loop. So collections with multiple `<arrangement>` notes produced exactly one 351 field containing only the last note. Moved the assembly block inside the loop (bumped indent from 8 to 12 spaces). Now each arrangement note produces its own 351 field — 351 is a repeatable MARC tag, so this is the correct shape.
+
+2. **`ead2marc_500` cross-record reference:** Line 2300 was calling `ead2marc_300(c0_raw)` instead of `ead2marc_300(raw)`. Worked in practice because at this call site `raw == c0_raw`, but it was inconsistent with every other `ead2marc_300(raw)` call in `ead2marc_rec` and would silently desync if `ead2marc_500` were ever invoked on a sub-element. One-character fix.
+
+**Functions affected:** `ead2marc_351`, `ead2marc_500` (file: EAD2MARC_workzone/EAD2MARCv1.83.py)
+
+**Pre-MC122 scan also verified clean:** operator-precedence traps (only the one already fixed), `sorted()`-returning-list bugs (only the one already fixed), lxml Element truthiness checks (only the one already fixed), off-by-one slicing on fixed-width MARC sub-fields. The remaining IDE "not accessed" warnings (`field_336_xml_list`, `field_041_xml_list`, `all_langcodes`, `leader_xml_list`, `leader_p6`) are non-issues — the output-producing calls happen in `ead2marc_rec`; the flagged calls inside `ead2marc_008` and `ead2marc_leader` are for internal computation only. `leader_p7` is genuinely dead code (computed and returned but never read) — left as-is per user request.
+
+---
+
+### 2026-06-02: v1.83.py — Fix lxml Truthiness and Date Zero-Padding in 008
+
+**What was done:** Two related bug fixes in `ead2marc_008`, surfaced by running v1.83 against `test2_ead3.xml` (record 4, "questionable date test", date range 456-477).
+
+1. **lxml truthiness fix (single-unitdate range branch):** The check `if todate_raw:` was using a bare lxml Element in a boolean context. In lxml, Elements are truthy only if they have child elements — text content alone is not enough. So records whose only unitdate was a `<daterange>` with a `<todate>` containing just text (the normal case) were silently falling through to the `else` branch and getting `p11to14 = "    "` instead of the actual end date. Replaced with `if todate_list:` (checking the xpath result list, where Python's normal "non-empty list is truthy" rule applies).
+
+2. **Zero-padding for short numeric dates:** Dates like `"456"` were being written into the 008 controlfield as 3 chars wide, shifting every position after them left by one. Added two layers: (a) `.zfill(4)` on `date_list.append` calls in the multi-unitdate branch, so `min`/`max` lex-compare correctly when dates differ in width (e.g. `["456", "1970"]` → `["0456", "1970"]` so `min` returns `"0456"` chronologically, not `"1970"` lexicographically); (b) a final `if p7to10.isdigit(): p7to10 = p7to10.zfill(4)` normalization right before the controlfield is assembled, to catch the single-unitdate paths without adding `.zfill(4)` to every individual assignment. `isdigit()` returns True only for non-empty all-digit strings, so it skips `"uuuu"` (no-dates placeholder) and blank-space placeholders.
+
+**Function affected:** `ead2marc_008` (file: EAD2MARC_workzone/EAD2MARCv1.83.py)
+
+---
+
+### 2026-06-02: v1.83.py — Filter Non-Creation Dates from 008 p6/p7-14
+
+**What was done:** Resolved the long-standing TODO at line 4767 in `ead2marc_008` (now line 4763 in v1.83). EAD3 `<unitdatestructured>` elements carry a `datechar` attribute (creation, copyright, broadcast, publication, etc.) but the function previously treated all of them identically, mixing copyright dates into the inclusive-date span computed for 008 positions 7-14. Added a list-comprehension filter immediately after `unitdates_list` is built:
+
+```python
+creation_unitdates = [u for u in unitdates_list if u.get("datechar") == "creation"]
+if creation_unitdates:
+    unitdates_list = creation_unitdates
+```
+
+Behavior:
+
+- Record has creation dates → only those are used for 008 p6/p7-14; copyright/broadcast/etc. are filtered out (still preserved in 264 via `ead2marc_264`).
+- Record has only copyright (or other non-creation) dates → falls back to existing logic, which yields `p6 = i` and min/max for multi-date records — matches user's stated preference for the copyright-only case.
+- Record has no dates → unchanged (`p6 = n`, dates `uuuu`).
+
+**Versioning:** Copied v1.82.py to `archived EAD2MARC/EAD2MARCv1.82.py` (preserves the three bug fixes from earlier today as the v1.82 final state). New work file is `EAD2MARC_workzone/EAD2MARCv1.83.py`.
+
+**Function affected:** `ead2marc_008` (file: EAD2MARC_workzone/EAD2MARCv1.83.py)
+
+---
+
+### 2026-06-02: Fix Three In-Progress TODO Resolutions in v1.82.py
+
+**What was done:** Repaired three buggy TODO resolutions left half-finished in v1.82.py.
+
+1. **`ead2marc_300` (line 1904, subfield c period logic):** Changed `if dimensions_clean[-2:] == "ft" or "in":` to `if dimensions_clean[-2:] in ("ft", "in"):`. Original was an operator-precedence trap — Python read it as `(... == "ft") or ("in")`, and a non-empty string is truthy, so the condition was permanently True and a period was being appended to every dimension (including cm).
+
+2. **`ead2marc_351` (line 2273-2277, head-stripping logic):** Reverted a half-finished `arrnote_clean` → `arrnote_cleanish` rename. The new name was only assigned inside `if arrnote_head_list:`, so any arrangement note without a `<head>` child would raise `NameError` on the downstream `" ".join(arrnote_clean.split())` call.
+
+3. **`ead2marc_008` (lines 4875-4879, illustration code aggregation):** Rewrote to use a `set()` for dedup, `dict.items()` for cleaner iteration, `"".join(sorted(...))` for alphabetization, and `(ills_raw + "    ")[:4]` for padded-to-exactly-4-chars slicing. Original was three problems compounding: `sorted()` returns a list (would TypeError on the next iteration's string concatenation), no dedup, and `[:5]` was wrong since MARC 008 p18-21 is a 4-character field.
+
+**Latent issue flagged (not fixed):** `ead2marc_351` builds `a_351` inside a `for arrnote in arrnote_list:` loop but assembles the `<datafield>` outside the loop, so collections with multiple `<arrangement>` notes only get the last one written. Pre-existing, not introduced by this fix.
+
+**Functions affected:** `ead2marc_300`, `ead2marc_351`, `ead2marc_008` (file: EAD2MARC_workzone/EAD2MARCv1.82.py)
+
+---
 
 ### 2026-03-26: Parse Type Toggle and Looping Logic in Setup Cell
 

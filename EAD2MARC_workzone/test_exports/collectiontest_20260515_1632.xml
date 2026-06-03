@@ -1,0 +1,326 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<marc:collection xmlns:marc="http://www.loc.gov/MARC21/slim" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.loc.gov/MARC21/slim http://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd">
+  <marc:record>
+  <marc:leader>00000npm a22000007i 4500</marc:leader>
+  <marc:controlfield>260515i19701990xx                 mul d</marc:controlfield>
+  <marc:datafield tag="040" ind1=" " ind2=" ">
+    <marc:subfield code="a">IUL</marc:subfield>
+    <marc:subfield code="b">eng</marc:subfield>
+    <marc:subfield code="e">rda</marc:subfield>
+    <marc:subfield code="c">IUL</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="041" ind1=" " ind2=" ">
+    <marc:subfield code="a">eng</marc:subfield>
+    <marc:subfield code="a">grc</marc:subfield>
+    <marc:subfield code="a">heb</marc:subfield>
+    <marc:subfield code="a">zul</marc:subfield>
+    <marc:subfield code="a">gla</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="041" ind1=" " ind2="7">
+    <marc:subfield code="a">zgh</marc:subfield>
+    <marc:subfield code="2">iso639-2b</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="049" ind1=" " ind2=" ">
+    <marc:subfield code="a">IULA</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="100" ind1="3" ind2=" ">
+    <marc:subfield code="a">West (Family : (West, Joseph Anderson, 1867-1947)) (1897- )</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="245" ind1="1" ind2="0">
+    <marc:subfield code="a">100 family name test/300 test/041 test/bulk incl date test</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="264" ind1=" " ind2="0">
+    <marc:subfield code="c">1970-1990</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="264" ind1=" " ind2="0">
+    <marc:subfield code="c">1988-1989</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="300" ind1=" " ind2=" ">
+    <marc:subfield code="a">1 container summary (x pages)</marc:subfield>
+    <marc:subfield code="c">xx cm.</marc:subfield>
+    <marc:subfield code="a">1 Box</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="506" ind1=" " ind2=" ">
+    <marc:subfield code="a">This item is part of a collection that is open for research. Retrieval requires advance notice. Please contact the Cook Music Library to access this item.</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="546" ind1=" " ind2=" ">
+    <marc:subfield code="a">English, Greek, Ancient (to 1453), Hebrew, Zulu, Gaelic; Scottish Gaelic, Standard Moroccan Tamazight</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="690" ind1=" " ind2="7">
+    <marc:subfield code="a">.</marc:subfield>
+    <marc:subfield code="2">local</marc:subfield>
+    <marc:subfield code="5">InU-Mu</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="700" ind1="1" ind2="0">
+    <marc:subfield code="a">Carmel, Dov,</marc:subfield>
+    <marc:subfield code="d">1932-</marc:subfield>
+  </marc:datafield>
+</marc:record>
+  <marc:record>
+  <marc:leader>00000npm a22000007i 4500</marc:leader>
+  <marc:controlfield>260515s1969    xx                 und d</marc:controlfield>
+  <marc:datafield tag="040" ind1=" " ind2=" ">
+    <marc:subfield code="a">IUL</marc:subfield>
+    <marc:subfield code="b">eng</marc:subfield>
+    <marc:subfield code="e">rda</marc:subfield>
+    <marc:subfield code="c">IUL</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="049" ind1=" " ind2=" ">
+    <marc:subfield code="a">IULA</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="110" ind1="2" ind2=" ">
+    <marc:subfield code="a">Colburn Orchestra</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="245" ind1="1" ind2="0">
+    <marc:subfield code="a">110 corp name test/approx date test</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="264" ind1=" " ind2="0">
+    <marc:subfield code="c">1969approximately</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="300" ind1=" " ind2=" ">1 item</marc:datafield>
+  <marc:datafield tag="506" ind1=" " ind2=" ">
+    <marc:subfield code="a">This item is part of a collection that is open for research. Retrieval requires advance notice. Please contact the Cook Music Library to access this item.</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="690" ind1=" " ind2="7">
+    <marc:subfield code="a">.</marc:subfield>
+    <marc:subfield code="2">local</marc:subfield>
+    <marc:subfield code="5">InU-Mu</marc:subfield>
+  </marc:datafield>
+</marc:record>
+  <marc:record>
+  <marc:leader>00000npm a22000007i 4500</marc:leader>
+  <marc:controlfield>260515s1556    xx                 und d</marc:controlfield>
+  <marc:datafield tag="040" ind1=" " ind2=" ">
+    <marc:subfield code="a">IUL</marc:subfield>
+    <marc:subfield code="b">eng</marc:subfield>
+    <marc:subfield code="e">rda</marc:subfield>
+    <marc:subfield code="c">IUL</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="049" ind1=" " ind2=" ">
+    <marc:subfield code="a">IULA</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="245" ind1="1" ind2="0">
+    <marc:subfield code="a">5xx tests/inferred date test</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="264" ind1=" " ind2="0">
+    <marc:subfield code="c">]1556[</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="500" ind1=" " ind2=" ">
+    <marc:subfield code="a">Material Specific Details: ASpace note type Materials Specific Details content</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="500" ind1=" " ind2=" ">
+    <marc:subfield code="a">Physical Description note: ASpace note type Physical Description content</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="500" ind1=" " ind2=" ">
+    <marc:subfield code="a">Physical Description note: ASpace note type Physical Facet content</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="500" ind1=" " ind2=" ">
+    <marc:subfield code="a">Location of resource: ASpace note type Physical Location content</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="500" ind1=" " ind2=" ">
+    <marc:subfield code="a">Physical Description note: ASpace note type Dimensions content</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="500" ind1=" " ind2=" ">
+    <marc:subfield code="a">ASpace note type General content</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="500" ind1=" " ind2=" ">
+    <marc:subfield code="a">Physical Characteristics / Technical Requirements: ASpace note type Physical Characteristics and Technical Requirements content</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="500" ind1=" " ind2=" ">
+    <marc:subfield code="a">Processing Information: ASpace note type Processing Information content</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="500" ind1=" " ind2=" ">
+    <marc:subfield code="a">Materials Separated from the Resource: ASpace note type Separated Materials content</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="506" ind1=" " ind2=" ">
+    <marc:subfield code="a">ASpace note type content</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="520" ind1="3" ind2=" ">
+    <marc:subfield code="a">ASpace note type Abstract content</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="520" ind1="2" ind2=" ">
+    <marc:subfield code="a">ASpace note type Scope and Contents content</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="524" ind1=" " ind2=" ">
+    <marc:subfield code="a">ASpace note type Preferred Citation content</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="535" ind1="2" ind2=" ">
+    <marc:subfield code="a">ASpace note type Existence and Location of Copies content</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="535" ind1="1" ind2=" ">
+    <marc:subfield code="a">ASpace note type Existence and Location of Originals content</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="540" ind1=" " ind2=" ">
+    <marc:subfield code="a">ASpace note type Legal Status content</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="540" ind1=" " ind2=" ">
+    <marc:subfield code="a">ASpace note type Conditions Governing Use content</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="541" ind1="0" ind2=" ">
+    <marc:subfield code="a">ASpace note type Immediate Source of Acq (Unpublished) content</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="541" ind1="1" ind2=" ">
+    <marc:subfield code="a">ASpace note type Immediate Source of Acq (Published) content</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="544" ind1=" " ind2=" ">
+    <marc:subfield code="n">ASpace note type Related Materials content</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="545" ind1=" " ind2=" ">
+    <marc:subfield code="a">ASpace note type Biographical/Historical content</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="561" ind1="1" ind2=" ">
+    <marc:subfield code="a">ASpace note type Custodial History (Published) content</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="561" ind1="0" ind2=" ">
+    <marc:subfield code="a">ASpace note type Custodial History (Unpublished) content</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="583" ind1="1" ind2=" ">
+    <marc:subfield code="a">ASpace note type Appraisal content</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="584" ind1=" " ind2=" ">
+    <marc:subfield code="a">ASpace note type Accruals content</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="690" ind1=" " ind2="7">
+    <marc:subfield code="a">.</marc:subfield>
+    <marc:subfield code="2">local</marc:subfield>
+    <marc:subfield code="5">InU-Mu</marc:subfield>
+  </marc:datafield>
+</marc:record>
+  <marc:record>
+  <marc:leader>00000npm a22000007i 4500</marc:leader>
+  <marc:controlfield>260515i456    xx                 und d</marc:controlfield>
+  <marc:datafield tag="040" ind1=" " ind2=" ">
+    <marc:subfield code="a">IUL</marc:subfield>
+    <marc:subfield code="b">eng</marc:subfield>
+    <marc:subfield code="e">rda</marc:subfield>
+    <marc:subfield code="c">IUL</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="049" ind1=" " ind2=" ">
+    <marc:subfield code="a">IULA</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="245" ind1="1" ind2="0">
+    <marc:subfield code="a">600 and 610 test/questionable date test</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="264" ind1=" " ind2="0">
+    <marc:subfield code="c">?]456-477[</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="300" ind1=" " ind2=" ">1 item</marc:datafield>
+  <marc:datafield tag="506" ind1=" " ind2=" ">
+    <marc:subfield code="a">This item is part of a collection that is open for research. Retrieval requires advance notice. Please contact the Cook Music Library to access this item.</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="600" ind1="3" ind2="4">
+    <marc:subfield code="a">West (Family : (West, Joseph Anderson, 1867-1947)) (1897- )</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="610" ind1="2" ind2=" ">
+    <marc:subfield code="a">Israel Symphony Orchestra Rishon-Lezion</marc:subfield>
+    <marc:subfield code="e">performer</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="600" ind1="1" ind2=" ">
+    <marc:subfield code="a">Akiva, Daniel,</marc:subfield>
+    <marc:subfield code="d">1953-</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="690" ind1=" " ind2="7">
+    <marc:subfield code="a">.</marc:subfield>
+    <marc:subfield code="2">local</marc:subfield>
+    <marc:subfield code="5">InU-Mu</marc:subfield>
+  </marc:datafield>
+</marc:record>
+  <marc:record>
+  <marc:leader>00000npm a22000007i 4500</marc:leader>
+  <marc:controlfield>260515i19501975xx                 und d</marc:controlfield>
+  <marc:datafield tag="040" ind1=" " ind2=" ">
+    <marc:subfield code="a">IUL</marc:subfield>
+    <marc:subfield code="b">eng</marc:subfield>
+    <marc:subfield code="e">rda</marc:subfield>
+    <marc:subfield code="c">IUL</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="049" ind1=" " ind2=" ">
+    <marc:subfield code="a">IULA</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="245" ind1="1" ind2="0">
+    <marc:subfield code="a">65x test + multi copyright</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="264" ind1=" " ind2="4">
+    <marc:subfield code="c">1950</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="264" ind1=" " ind2="4">
+    <marc:subfield code="c">1965</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="264" ind1=" " ind2="4">
+    <marc:subfield code="c">1975</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="300" ind1=" " ind2=" ">1 item</marc:datafield>
+  <marc:datafield tag="506" ind1=" " ind2=" ">
+    <marc:subfield code="a">This item is part of a collection that is open for research. Retrieval requires advance notice. Please contact the Cook Music Library to access this item.</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="651" ind1=" " ind2="7">
+    <marc:subfield code="a">Cultural Context Term -- Genre Form Subdiv -- Topical Subdiv -- Temporal Subdiv -- Geographic Subdiv</marc:subfield>
+    <marc:subfield code="2">ingest</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="657" ind1=" " ind2="7">
+    <marc:subfield code="a">Function Term</marc:subfield>
+    <marc:subfield code="2">ingest</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="655" ind1=" " ind2="7">
+    <marc:subfield code="a">Genre Form Term</marc:subfield>
+    <marc:subfield code="2">local</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="651" ind1=" " ind2="7">
+    <marc:subfield code="a">Geographic Term</marc:subfield>
+    <marc:subfield code="2">tgn</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="656" ind1=" " ind2="7">
+    <marc:subfield code="a">Occupation Term</marc:subfield>
+    <marc:subfield code="2">Source not specified</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="650" ind1=" " ind2="7">
+    <marc:subfield code="a">Topical Term -- Style Period Subdiv -- Topical Subdiv -- Temporal Subdiv -- Geographic Subdiv</marc:subfield>
+    <marc:subfield code="2">ingest</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="630" ind1="0" ind2="4">
+    <marc:subfield code="a">Uniform Title Term</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="690" ind1=" " ind2="7">
+    <marc:subfield code="a">.</marc:subfield>
+    <marc:subfield code="2">local</marc:subfield>
+    <marc:subfield code="5">InU-Mu</marc:subfield>
+  </marc:datafield>
+</marc:record>
+  <marc:record>
+  <marc:leader>00000npm a22000007i 4500</marc:leader>
+  <marc:controlfield>260515i19301985xx                 und d</marc:controlfield>
+  <marc:datafield tag="040" ind1=" " ind2=" ">
+    <marc:subfield code="a">IUL</marc:subfield>
+    <marc:subfield code="b">eng</marc:subfield>
+    <marc:subfield code="e">rda</marc:subfield>
+    <marc:subfield code="c">IUL</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="049" ind1=" " ind2=" ">
+    <marc:subfield code="a">IULA</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="100" ind1="0" ind2=" ">
+    <marc:subfield code="a">ArchivesSpace v4.1.1</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="245" ind1="1" ind2="0">
+    <marc:subfield code="a">software agent test + multi copyright with creation</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="264" ind1=" " ind2="4">
+    <marc:subfield code="c">1966</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="264" ind1=" " ind2="4">
+    <marc:subfield code="c">1985</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="264" ind1=" " ind2="0">
+    <marc:subfield code="c">1930</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="300" ind1=" " ind2=" ">1 item</marc:datafield>
+  <marc:datafield tag="506" ind1=" " ind2=" ">
+    <marc:subfield code="a">This item is part of a collection that is open for research. Retrieval requires advance notice. Please contact the Cook Music Library to access this item.</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="690" ind1=" " ind2="7">
+    <marc:subfield code="a">.</marc:subfield>
+    <marc:subfield code="2">local</marc:subfield>
+    <marc:subfield code="5">InU-Mu</marc:subfield>
+  </marc:datafield>
+</marc:record>
+</marc:collection>
