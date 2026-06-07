@@ -1,5 +1,7 @@
 {
   "permissions": {
-    "allow": []
+    "allow": [
+      "Read(//tmp/**)"
+    ]
   }
 }

@@ -2,7 +2,7 @@
 
 ## Current To-Do's
 
-- [ ] After MC122 batch completes, audit records with `uuuu` in 008 p7-14 against their EAD source — confirm whether plain `<unitdate>` text-only elements were the only date info present (if so, Option B text-parsing fallback may be worth implementing as v1.84)
+- [X] After MC122 batch completes, audit records with `uuuu` in 008 p7-14 against their EAD source — RESOLVED 2026-06-04: 2/20 records in batch 41-60 had `uuuu`, both with literal `<unitdate>undated</unitdate>` in EAD source. Option B (year-regex text-parsing) would extract nothing useful from "undated". v1.84's behavior (`p6=n`, `p7-14=uuuu`, 264 $c "undated" preserved) is correct per MARC standards. Stay with Option A. Re-open this to-do only if a future batch shows uuuu records with year-containing text like "ca. 1970".
 - [ ] Check with L if 541 needs to be broken down into more subfields (see bibformats)
 
 - [ ] Address TODOs in .py doc
@@ -159,6 +159,64 @@
   - [X] Check leader and 008
 
 ## Major Claude Edits
+
+### 2026-06-04: v1.84.py — Broaden xmlns Cleanup Regex to Strip All Prefixed Namespaces
+
+**What was done:** First successful v1.84 run (records 21-40) revealed that every authority-fetched datafield carried ~13 leftover `xmlns:PREFIX="..."` declarations from id.loc.gov (xlink, rdf, madsrdf, ri, mets, idx, bfidx, semtriples, bf, bflc, bfsimple, dcterms). MARC validity wasn't affected (declarations were unused), but file size bloated 30KB across 20 records and the output was visually noisy.
+
+**Root cause:** The cleanup regex `re.sub(r'\s+xmlns(:zs)?="[^"]+"', '', ...)` was designed for the lccn.loc.gov format, which only used `xmlns=` (default) and `xmlns:zs=` (SRU wrapper). The `(:zs)?` group only matched the `:zs` prefix; all other prefixed namespaces id.loc.gov uses passed through untouched.
+
+**Fix:** Broadened the regex group from `(:zs)?` to `(:\w+)?` so it matches any word-character prefix (xmlns, xmlns:zs, xmlns:xlink, xmlns:marcxml, xmlns:anything). One `replace_all` edit applied to all 16 sites across the 10 authority-fetching functions.
+
+**Verified:** Python syntax check passes. Re-test against records 21-40 should show clean `<marc:datafield tag="..." ind1="..." ind2="...">` openings without the 13-namespace bloat.
+
+---
+
+### 2026-06-04: v1.84.py — Strip marcxml: Namespace Prefix from id.loc.gov Responses
+
+**What was done:** First test run of v1.84 (records 21-40) crashed immediately on record 1 with `lxml.etree.XMLSyntaxError: Extra content at the end of the document` at line 1482 (parsing `field_100_str_nb`).
+
+**Root cause:** id.loc.gov returns MARCXML with the namespace prefix `marcxml:` on every element (`<marcxml:record>`, `<marcxml:datafield>`, `<marcxml:subfield>`, etc.). lccn.loc.gov used unprefixed elements (default namespace). The script's downstream cleanup code did `etree.tostring()` on the extracted datafield element, then stripped only `xmlns=` and `xmlns:zs=` declarations via regex, then stripped `</datafield>` from the end of the string. With id.loc.gov's prefixed format, the serialized output looked like `<marcxml:datafield xmlns:marcxml="..." tag="100">...</marcxml:datafield>` — the closing-tag regex didn't match `</marcxml:datafield>`, so the closing tag stayed. Concatenating with a manually-built closing `</datafield>` produced malformed XML with two competing closing tags. lxml parser saw `</marcxml:datafield>` as valid, then `</datafield>` as "extra content".
+
+**Fix:** Added a small `loc_fetch_authority_xml(url, timeout=10)` helper near the top of the file. It wraps `loc_get`, decodes the response, and strips the `marcxml:` prefix from all element opening and closing tags before returning. This normalizes id.loc.gov's output to look like the lccn.loc.gov format the rest of the script expects — no changes needed at the 32 downstream cleanup sites.
+
+Then replaced all 20 `loc_get(authority_url, timeout=10).content` and `loc_get(subdiv_auth_url, timeout=10).content` calls with `loc_fetch_authority_xml(authority_url)` and `loc_fetch_authority_xml(subdiv_auth_url)`. Two `replace_all` edits handled all 20 sites cleanly.
+
+**Verified:** Python syntax check passes.
+
+**Why this wasn't caught in the initial v1.84 plan:** I noted the namespace-prefix difference in the v1.84 changelog ("script uses local-name() XPath patterns throughout, so parsing should be unaffected") — that was correct for the parsing/XPath phase, but I missed that the cleanup phase uses string regex on the serialized output, which is namespace-prefix-sensitive.
+
+**Function affected:** All 10 authority-fetching functions (100, 110, 600, 610, 630, 650, 651, 655, 700, 710).
+
+---
+
+### 2026-06-04: v1.84.py — Swap lccn.loc.gov → id.loc.gov; Gate VIAF Behind Flag
+
+**What was done:** Two coordinated changes to make the script browser-compatible for an eventual Pyodide + GitHub Pages deployment (per feasibility check confirming Pyodide + lxml + id.loc.gov all work in-browser, while lccn.loc.gov and viaf.org do not send CORS headers).
+
+1. **Added `lc_authority_url(authfile_no)` helper function** near the top of the file (right after `loc_get`). Routes any LC authority ID to the correct `id.loc.gov/authorities/{type}/{id}.marcxml.xml` URL based on the ID prefix: `sh`/`sj` → subjects, `gf` → genreForms, `dg` → demographicTerms, `n*` → names. Default fallback is names for unknown prefixes.
+
+2. **Replaced all 20 `lccn.loc.gov` URL constructions** with `lc_authority_url(...)` calls. Three patterns existed:
+   - `f"""https://lccn.loc.gov/{authfile_no}/marcxml"""` (10 sites, in 100/110/600/610/630/650/651/655/700/710)
+   - `f"https://lccn.loc.gov/{lc_id}/marcxml"` (6 sites, in the VIAF-cluster-with-LC-link branches of 100/110/600/610/700/710)
+   - `f"""https://lccn.loc.gov/{subdiv_token}/marcxml"""` (4 sites, in subdivision lookups for 630/650/651/655)
+
+3. **Updated all timeout warning messages** from "Connection to lccn.loc.gov timed out for {id}" to "Connection to id.loc.gov timed out for {id}" — accurate domain reference.
+
+4. **Added `VIAF_ENABLED = False` module constant** and gated all 12 VIAF code paths (6 SRU search + 6 cluster fetch) behind `... and VIAF_ENABLED`. Currently False to disable in-browser-incompatible VIAF fallback. For standalone Python use where VIAF features are desired, set to `True`.
+
+**Functions affected:** 10 (100, 110, 600, 610, 630, 650, 651, 655, 700, 710)
+
+**Verified:** Python syntax check passes (`python -m py_compile`).
+
+**Testing recommendation:** Re-run the latest MC122 batch against v1.84 and diff the output against v1.83. Expected differences are limited to:
+
+- Authority records fetched from id.loc.gov return MARCXML wrapped in `<marcxml:record xmlns:marcxml="...">` rather than `<marc:record xmlns:marc="...">`. Script uses `local-name()` XPath patterns throughout, so parsing should be unaffected, but worth confirming output is byte-similar.
+- Records whose only authority was via VIAF will now produce manually-constructed fields with "Authority lookup skipped" notes. None of the recent test runs hit VIAF lookups, so impact should be minimal.
+
+**Why both changes in one version:** The lccn → id.loc.gov swap also benefits standalone Python usage (id.loc.gov is more reliable than lccn.loc.gov; you've seen many connection timeouts on the latter). VIAF gating is the only browser-specific change.
+
+---
 
 ### 2026-06-03: v1.83.py — Fix IndexError on Plain `<unitdate>` Text Elements
 

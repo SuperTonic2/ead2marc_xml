@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pyodide Feasibility Check — EAD2MARC_XML</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 900px;
+      margin: 2rem auto;
+      padding: 1rem;
+      color: #222;
+    }
+    h1 { font-size: 1.6rem; }
+    h2 { font-size: 1.2rem; margin-top: 2rem; }
+    .intro {
+      background: #f0f5ff;
+      border-left: 4px solid #0066cc;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      border-radius: 4px;
+    }
+    .status {
+      margin: 0.4rem 0;
+      padding: 0.6rem 0.8rem;
+      border-left: 4px solid #999;
+      background: #f8f8f8;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 0.9rem;
+      border-radius: 2px;
+    }
+    .status.pending { border-color: #888; color: #555; }
+    .status.pass { border-color: #2a8c2a; background: #e8f6e8; }
+    .status.fail { border-color: #c33; background: #fde8e8; }
+    .status .label { font-weight: bold; }
+    .status .verdict { font-weight: bold; margin: 0 0.5rem; }
+    .status .verdict.pass { color: #2a8c2a; }
+    .status .verdict.fail { color: #c33; }
+    .summary {
+      margin-top: 2rem;
+      padding: 1rem;
+      background: #fffae8;
+      border: 1px solid #d4af37;
+      border-radius: 4px;
+    }
+    pre {
+      background: #fff;
+      padding: 1rem;
+      overflow-x: auto;
+      border: 1px solid #ddd;
+      font-size: 0.85rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    button {
+      padding: 0.6rem 1.2rem;
+      font-size: 1rem;
+      cursor: pointer;
+      background: #0066cc;
+      color: white;
+      border: none;
+      border-radius: 4px;
+    }
+    button:hover { background: #0052a3; }
+    .origin {
+      font-family: monospace;
+      background: #eee;
+      padding: 0.2rem 0.4rem;
+      border-radius: 2px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Pyodide Feasibility Check</h1>
+
+  <div class="intro">
+    <p><strong>What this is:</strong> a self-running test of whether your EAD2MARC_XML conversion logic can run entirely in a web browser via Pyodide (Python compiled to WebAssembly).</p>
+    <p><strong>What to do:</strong></p>
+    <ol>
+      <li>Wait for all tests to complete (~30-90 seconds; Pyodide is ~10MB so first load is slow)</li>
+      <li>Once the yellow "Summary" box appears, click <strong>Copy results to clipboard</strong></li>
+      <li>Paste the result back to Claude</li>
+    </ol>
+    <p><strong>Open in:</strong> Firefox is best for this test (more permissive about local file CORS). Chrome will work but may show stricter CORS failures. If you can test in both, that's even more useful.</p>
+    <p>Current page origin: <span class="origin" id="origin">checking...</span></p>
+  </div>
+
+  <h2>Tests</h2>
+  <div id="tests"></div>
+
+  <div class="summary" id="summary" style="display:none;">
+    <h2 style="margin-top:0">Summary — copy this back to Claude</h2>
+    <pre id="summaryText"></pre>
+    <button onclick="copyResults()">Copy results to clipboard</button>
+    <span id="copied" style="margin-left:1rem; color:#2a8c2a; display:none;">Copied!</span>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+  <script>
+    const results = {};
+    document.getElementById('origin').textContent = location.protocol + '//' + (location.host || '(empty — file:// origin)');
+
+    function addStatus(id, label) {
+      const div = document.createElement('div');
+      div.id = 'status-' + id;
+      div.className = 'status pending';
+      div.innerHTML = `<span class="label">${label}:</span> <span class="detail">running...</span>`;
+      document.getElementById('tests').appendChild(div);
+    }
+
+    function setStatus(id, ok, detail) {
+      const div = document.getElementById('status-' + id);
+      div.className = 'status ' + (ok ? 'pass' : 'fail');
+      const label = div.querySelector('.label').textContent;
+      div.innerHTML = `<span class="label">${label}</span> <span class="verdict ${ok ? 'pass' : 'fail'}">${ok ? 'PASS' : 'FAIL'}</span> <span class="detail">${detail}</span>`;
+      results[id] = { ok, detail };
+    }
+
+    async function runTests() {
+      // Test 1: Pyodide loads
+      addStatus('pyodide', 'Pyodide loads');
+      let pyodide;
+      try {
+        pyodide = await loadPyodide();
+        setStatus('pyodide', true, `Pyodide ${pyodide.version} loaded`);
+      } catch (e) {
+        setStatus('pyodide', false, `Could not load Pyodide: ${e.message}`);
+        finish();
+        return;
+      }
+
+      // Test 2: lxml package loads
+      addStatus('lxml-load', 'lxml package loads');
+      try {
+        await pyodide.loadPackage('lxml');
+        setStatus('lxml-load', true, 'lxml package loaded');
+      } catch (e) {
+        setStatus('lxml-load', false, `lxml could not be loaded: ${e.message}`);
+      }
+
+      // Test 3: lxml.etree imports
+      addStatus('lxml-import', 'lxml.etree imports');
+      try {
+        await pyodide.runPythonAsync('from lxml import etree');
+        setStatus('lxml-import', true, 'from lxml import etree succeeded');
+      } catch (e) {
+        setStatus('lxml-import', false, `Import failed: ${e.message}`);
+      }
+
+      // Test 4: Parse EAD3 sample with XPath
+      addStatus('lxml-parse', 'Parse EAD3 sample + XPath');
+      try {
+        const result = await pyodide.runPythonAsync(`
+from lxml import etree
+ead = b'''<?xml version="1.0"?>
+<ead xmlns="http://ead3.archivists.org/schema/">
+  <archdesc level="collection">
+    <did>
+      <unittitle>Test collection</unittitle>
+      <unitid>VAE9999</unitid>
+    </did>
+  </archdesc>
+</ead>'''
+root = etree.fromstring(ead)
+titles = root.xpath(".//*[local-name()='unittitle']")
+str(titles[0].text)
+`);
+        setStatus('lxml-parse', true, `Got title: "${result}"`);
+      } catch (e) {
+        setStatus('lxml-parse', false, `Parse failed: ${e.message}`);
+      }
+
+      // Test 5: html module (used by script for escape)
+      addStatus('html-escape', 'html.escape available');
+      try {
+        const result = await pyodide.runPythonAsync(`
+import html
+html.escape("<test & 'apostrophe'>")
+`);
+        setStatus('html-escape', true, `Got: ${result}`);
+      } catch (e) {
+        setStatus('html-escape', false, `html.escape failed: ${e.message}`);
+      }
+
+      // Test 6: pyodide.http available
+      addStatus('pyfetch-import', 'pyodide.http.pyfetch import');
+      try {
+        await pyodide.runPythonAsync('from pyodide.http import pyfetch');
+        setStatus('pyfetch-import', true, 'pyfetch imported');
+      } catch (e) {
+        setStatus('pyfetch-import', false, `Could not import pyfetch: ${e.message}`);
+      }
+
+      // Test 7: CORS — id.loc.gov suggest2 (subjects)
+      addStatus('cors-loc-suggest', 'CORS: id.loc.gov suggest2');
+      try {
+        const r = await pyodide.runPythonAsync(`
+from pyodide.http import pyfetch
+r = await pyfetch("https://id.loc.gov/authorities/subjects/suggest2?q=Piano+music")
+body = await r.string()
+f"status={r.status}, len={len(body)}, sample={body[:80]!r}"
+`);
+        setStatus('cors-loc-suggest', true, r);
+      } catch (e) {
+        setStatus('cors-loc-suggest', false, `Failed (likely CORS): ${e.message}`);
+      }
+
+      // Test 8: CORS — lccn.loc.gov MARCXML
+      addStatus('cors-lccn-marcxml', 'CORS: lccn.loc.gov MARCXML');
+      try {
+        const r = await pyodide.runPythonAsync(`
+from pyodide.http import pyfetch
+r = await pyfetch("https://lccn.loc.gov/sh85101533/marcxml")
+body = await r.string()
+f"status={r.status}, len={len(body)}, has_marc={('<record' in body or '<marc:record' in body)}"
+`);
+        setStatus('cors-lccn-marcxml', true, r);
+      } catch (e) {
+        setStatus('cors-lccn-marcxml', false, `Failed (likely CORS): ${e.message}`);
+      }
+
+      // Test 9: CORS — VIAF SRU search
+      addStatus('cors-viaf', 'CORS: viaf.org SRU search');
+      try {
+        const r = await pyodide.runPythonAsync(`
+from pyodide.http import pyfetch
+r = await pyfetch("https://viaf.org/viaf/search?query=local.personalNames+all+%22Bach%22&maximumRecords=1")
+body = await r.string()
+f"status={r.status}, len={len(body)}, has_records={('<searchRetrieveResponse' in body or 'record' in body)}"
+`);
+        setStatus('cors-viaf', true, r);
+      } catch (e) {
+        setStatus('cors-viaf', false, `Failed (likely CORS): ${e.message}`);
+      }
+
+      // Test 10: pyodide can also use FileReader for input
+      addStatus('file-api', 'Browser File API available');
+      try {
+        const result = (typeof FileReader !== 'undefined') ? 'yes' : 'no';
+        setStatus('file-api', result === 'yes', `FileReader: ${result}`);
+      } catch (e) {
+        setStatus('file-api', false, e.message);
+      }
+
+      finish();
+    }
+
+    function finish() {
+      const lines = [];
+      lines.push('=== Pyodide Feasibility Check — EAD2MARC_XML ===');
+      lines.push('');
+      lines.push(`Origin: ${location.protocol}//${location.host || '(file://)'}`);
+      lines.push(`User Agent: ${navigator.userAgent}`);
+      lines.push(`Timestamp: ${new Date().toISOString()}`);
+      lines.push('');
+      lines.push('Tests:');
+      for (const [id, r] of Object.entries(results)) {
+        lines.push(`  [${r.ok ? 'PASS' : 'FAIL'}] ${id}`);
+        lines.push(`         ${r.detail}`);
+      }
+      lines.push('');
+      const passCount = Object.values(results).filter(r => r.ok).length;
+      const totalCount = Object.values(results).length;
+      lines.push(`Score: ${passCount}/${totalCount} passed`);
+      lines.push('');
+      lines.push('Critical for viability:');
+      lines.push(`  Pyodide loads:           ${results['pyodide']?.ok ? 'YES' : 'NO'}`);
+      lines.push(`  lxml usable:             ${(results['lxml-load']?.ok && results['lxml-import']?.ok && results['lxml-parse']?.ok) ? 'YES' : 'NO'}`);
+      lines.push(`  pyfetch importable:      ${results['pyfetch-import']?.ok ? 'YES' : 'NO'}`);
+      lines.push(`  id.loc.gov reachable:    ${results['cors-loc-suggest']?.ok ? 'YES' : 'NO'}`);
+      lines.push(`  lccn.loc.gov reachable:  ${results['cors-lccn-marcxml']?.ok ? 'YES' : 'NO'}`);
+      lines.push(`  viaf.org reachable:      ${results['cors-viaf']?.ok ? 'YES' : 'NO'}`);
+      const text = lines.join('\n');
+      document.getElementById('summaryText').textContent = text;
+      document.getElementById('summary').style.display = 'block';
+    }
+
+    async function copyResults() {
+      try {
+        await navigator.clipboard.writeText(document.getElementById('summaryText').textContent);
+        const c = document.getElementById('copied');
+        c.style.display = 'inline';
+        setTimeout(() => { c.style.display = 'none'; }, 2000);
+      } catch (e) {
+        alert('Could not copy automatically — please select and copy the text manually.');
+      }
+    }
+
+    runTests();
+  </script>
+</body>
+</html>

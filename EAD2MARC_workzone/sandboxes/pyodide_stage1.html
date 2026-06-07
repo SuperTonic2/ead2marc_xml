@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pyodide Stage 1 — Run v1.84 in browser</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 1100px; margin: 2rem auto; padding: 1rem; color: #222;
+    }
+    h1 { font-size: 1.6rem; }
+    h2 { font-size: 1.15rem; margin-top: 2rem; }
+    .intro {
+      background: #f0f5ff; border-left: 4px solid #0066cc;
+      padding: 1rem; margin-bottom: 1.5rem; border-radius: 4px;
+    }
+    .status {
+      margin: 0.4rem 0; padding: 0.6rem 0.8rem;
+      border-left: 4px solid #999; background: #f8f8f8;
+      font-family: 'Consolas', 'Monaco', monospace; font-size: 0.9rem;
+      border-radius: 2px; white-space: pre-wrap; word-break: break-word;
+    }
+    .status.pending { border-color: #888; color: #555; }
+    .status.pass { border-color: #2a8c2a; background: #e8f6e8; }
+    .status.fail { border-color: #c33; background: #fde8e8; }
+    .status.skip { border-color: #888; background: #f0f0f0; color: #555; }
+    .status .label { font-weight: bold; }
+    .status .verdict { font-weight: bold; margin: 0 0.5rem; }
+    .status .verdict.pass { color: #2a8c2a; }
+    .status .verdict.fail { color: #c33; }
+    .status .verdict.skip { color: #555; }
+    .summary {
+      margin-top: 2rem; padding: 1rem;
+      background: #fffae8; border: 1px solid #d4af37; border-radius: 4px;
+    }
+    pre {
+      background: #fff; padding: 1rem; overflow-x: auto;
+      border: 1px solid #ddd; font-size: 0.85rem;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    button {
+      padding: 0.6rem 1.2rem; font-size: 1rem; cursor: pointer;
+      background: #0066cc; color: white; border: none; border-radius: 4px;
+    }
+    button:hover { background: #0052a3; }
+    .origin {
+      font-family: monospace; background: #eee;
+      padding: 0.2rem 0.4rem; border-radius: 2px;
+    }
+    details { margin-top: 0.5rem; }
+    details summary { cursor: pointer; color: #555; font-size: 0.85rem; }
+    details pre { background: #f5f5f5; }
+  </style>
+</head>
+<body>
+  <h1>Pyodide Stage 1 — Can v1.84.py run in the browser?</h1>
+
+  <div class="intro">
+    <p><strong>What this is:</strong> a more substantive Pyodide test that actually loads your <code>EAD2MARCv1.84.py</code> script, calls helpers and a real <code>ead2marc_*</code> conversion function, and verifies the network paths to <code>id.loc.gov</code> work end-to-end.</p>
+    <p><strong>What to do:</strong></p>
+    <ol>
+      <li>Open in <strong>Firefox</strong> (most permissive)</li>
+      <li>Wait for tests to finish (~60-120 seconds — Pyodide + lxml + fetching the script takes a moment)</li>
+      <li>Click <strong>Copy results to clipboard</strong></li>
+      <li>Paste back to Claude</li>
+    </ol>
+    <p>Current page origin: <span class="origin" id="origin">checking...</span></p>
+    <p><strong>Goal:</strong> verify v1.84's logic runs in Pyodide. If yes → Stage 2 (build the UI) is safe to commit to. If no → we'll see exactly what needs to be shimmed first.</p>
+    <p style="margin-top:1rem; padding:0.75rem; background:#fff8d6; border:1px solid #d4af37; border-radius:4px;">
+      <strong>Step 1 — select the script file:</strong>
+      Pick <code>EAD2MARCv1.84.py</code> (one folder up from this HTML file: <code>EAD2MARC_workzone/EAD2MARCv1.84.py</code>).
+      File:// origins can't <code>fetch()</code> sibling files in modern browsers, so we pass it in by hand.<br><br>
+      <input type="file" id="scriptPicker" accept=".py">
+    </p>
+  </div>
+
+  <h2>Tests</h2>
+  <div id="tests"></div>
+
+  <div class="summary" id="summary" style="display:none;">
+    <h2 style="margin-top:0">Summary — copy this back to Claude</h2>
+    <pre id="summaryText"></pre>
+    <button onclick="copyResults()">Copy results to clipboard</button>
+    <span id="copied" style="margin-left:1rem; color:#2a8c2a; display:none;">Copied!</span>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+  <script>
+    const results = {};
+    document.getElementById('origin').textContent =
+      location.protocol + '//' + (location.host || '(empty — file:// origin)');
+
+    function addStatus(id, label) {
+      const div = document.createElement('div');
+      div.id = 'status-' + id;
+      div.className = 'status pending';
+      div.innerHTML = `<span class="label">${label}:</span> <span class="detail">running...</span>`;
+      document.getElementById('tests').appendChild(div);
+    }
+
+    function setStatus(id, ok, detail, kind) {
+      const div = document.getElementById('status-' + id);
+      const cls = kind || (ok ? 'pass' : 'fail');
+      const verdict = kind === 'skip' ? 'SKIP' : (ok ? 'PASS' : 'FAIL');
+      div.className = 'status ' + cls;
+      const label = div.querySelector('.label').textContent;
+      div.innerHTML =
+        `<span class="label">${label}</span> ` +
+        `<span class="verdict ${cls}">${verdict}</span> ` +
+        `<span class="detail">${detail}</span>`;
+      results[id] = { ok, detail, kind: kind || null };
+    }
+
+    function addExpandable(id, title, content) {
+      const div = document.getElementById('status-' + id);
+      const details = document.createElement('details');
+      details.innerHTML = `<summary>${title}</summary><pre>${content
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>`;
+      div.appendChild(details);
+    }
+
+    async function runTests() {
+      // ---- 1. Pyodide loads
+      addStatus('pyodide', '1. Pyodide loads');
+      let pyodide;
+      try {
+        pyodide = await loadPyodide();
+        setStatus('pyodide', true, `Pyodide ${pyodide.version} loaded`);
+      } catch (e) {
+        setStatus('pyodide', false, `Could not load Pyodide: ${e.message}`);
+        finish();
+        return;
+      }
+
+      // ---- 2. lxml loads
+      addStatus('lxml-load', '2. lxml package loads');
+      try {
+        await pyodide.loadPackage('lxml');
+        setStatus('lxml-load', true, 'lxml loaded');
+      } catch (e) {
+        setStatus('lxml-load', false, `lxml load failed: ${e.message}`);
+      }
+
+      // ---- 3. micropip available
+      addStatus('micropip', '3. micropip available');
+      try {
+        await pyodide.loadPackage('micropip');
+        setStatus('micropip', true, 'micropip loaded');
+      } catch (e) {
+        setStatus('micropip', false, `micropip load failed: ${e.message}`);
+      }
+
+      // ---- 4. requests library available (the critical question)
+      addStatus('requests-import', '4. requests library import');
+      try {
+        await pyodide.runPythonAsync(`
+import micropip
+await micropip.install('requests')
+import requests
+"requests version: " + requests.__version__
+`).then(v => {
+          setStatus('requests-import', true, v);
+        });
+      } catch (e) {
+        setStatus('requests-import', false,
+          `requests could not be installed/imported: ${e.message}. ` +
+          `Would need a pyfetch shim.`);
+      }
+
+      // ---- 5. requests.get works on a CORS-friendly endpoint
+      addStatus('requests-get', '5. requests.get() to id.loc.gov works');
+      try {
+        const result = await pyodide.runPythonAsync(`
+import requests
+r = requests.get("https://id.loc.gov/authorities/subjects/suggest2?q=Piano+music", timeout=10)
+f"status={r.status_code}, len={len(r.content)}, content_type={r.headers.get('Content-Type','?')}"
+`);
+        setStatus('requests-get', true, result);
+      } catch (e) {
+        setStatus('requests-get', false, `requests.get failed: ${e.message}`);
+      }
+
+      // ---- 6. pycallnumber: try install, fall back to stub
+      addStatus('pycallnumber', '6. pycallnumber (third-party LC call number lib)');
+      let pycallnumberOk = false;
+      try {
+        await pyodide.runPythonAsync(`
+import micropip
+await micropip.install('pycallnumber')
+import pycallnumber as pycn
+"pycallnumber installed and imported"
+`);
+        setStatus('pycallnumber', true, 'pycallnumber installed via micropip');
+        pycallnumberOk = true;
+      } catch (e) {
+        // Try a stub instead
+        try {
+          await pyodide.runPythonAsync(`
+import sys, types
+_stub = types.ModuleType('pycallnumber')
+class _DummyCN:
+    def __init__(self, raw): self.raw = raw
+    def __str__(self): return self.raw
+def _callnumber(s): return _DummyCN(s)
+_stub.callnumber = _callnumber
+sys.modules['pycallnumber'] = _stub
+"pycallnumber stubbed (real package unavailable)"
+`);
+          setStatus('pycallnumber', true,
+            `Real package unavailable (${e.message.split('\\n')[0]}); ` +
+            `stub installed. Functions using pycallnumber (050/082/086) will not work correctly but won't crash.`,
+            'pass');
+        } catch (stubErr) {
+          setStatus('pycallnumber', false, `Could not install or stub: ${stubErr.message}`);
+        }
+      }
+
+      // ---- 7. Read v1.84.py from the user-picked file
+      addStatus('fetch-script', '7. Read EAD2MARCv1.84.py from file picker');
+      let scriptSrc;
+      try {
+        const file = document.getElementById('scriptPicker').files[0];
+        if (!file) throw new Error('No file selected. Pick EAD2MARCv1.84.py above and refresh.');
+        scriptSrc = await file.text();
+        setStatus('fetch-script', true,
+          `Loaded ${scriptSrc.length.toLocaleString()} chars from "${file.name}"`);
+      } catch (e) {
+        setStatus('fetch-script', false, `Could not read script: ${e.message}`);
+        finish();
+        return;
+      }
+
+      // ---- 8. Strip top-level execution block
+      addStatus('strip-exec', '8. Strip top-level execution block');
+      let scriptDefsOnly;
+      try {
+        // Find the boundary: top-level execution starts with `tree = etree.parse(...)`
+        const marker = 'tree = etree.parse(';
+        const idx = scriptSrc.indexOf(marker);
+        if (idx === -1) throw new Error('Could not find boundary marker');
+        scriptDefsOnly = scriptSrc.slice(0, idx);
+        setStatus('strip-exec', true,
+          `Kept first ${scriptDefsOnly.length.toLocaleString()} chars (definitions only); ` +
+          `dropped last ${(scriptSrc.length - scriptDefsOnly.length).toLocaleString()} chars (execution).`);
+      } catch (e) {
+        setStatus('strip-exec', false, e.message);
+        finish();
+        return;
+      }
+
+      // ---- 9. exec() definitions in Pyodide
+      addStatus('exec-defs', '9. Execute definitions in Pyodide');
+      try {
+        pyodide.globals.set('script_src', scriptDefsOnly);
+        await pyodide.runPythonAsync(`
+exec(script_src, globals())
+# Don't return anything large; just confirm it ran
+"ok"
+`);
+        setStatus('exec-defs', true, 'Definitions executed without error');
+      } catch (e) {
+        setStatus('exec-defs', false, `exec failed: ${e.message}`);
+        addExpandable('exec-defs', 'Full traceback', e.toString());
+        finish();
+        return;
+      }
+
+      // ---- 10. lc_authority_url helper works
+      addStatus('helper-url', '10. lc_authority_url helper works');
+      try {
+        const result = await pyodide.runPythonAsync(`
+results = []
+for aid in ["n79074343", "sh85101533", "gf2014026105", "no2002002037"]:
+    results.append(f"{aid} -> {lc_authority_url(aid)}")
+"\\n".join(results)
+`);
+        setStatus('helper-url', true, 'helper returned correct URLs for 4 test IDs');
+        addExpandable('helper-url', 'Show URLs', result);
+      } catch (e) {
+        setStatus('helper-url', false, `helper call failed: ${e.message}`);
+      }
+
+      // ---- 11. loc_fetch_authority_xml works against real id.loc.gov
+      addStatus('fetch-authority', '11. loc_fetch_authority_xml fetches LCNAF record');
+      try {
+        const result = await pyodide.runPythonAsync(`
+xml_bytes = loc_fetch_authority_xml("https://id.loc.gov/authorities/names/n79074343.marcxml.xml")
+xml_str = xml_bytes.decode("utf-8")
+has_record = "<record" in xml_str or "<marcxml:record" in xml_str
+no_marcxml_prefix = "<marcxml:" not in xml_str  # we strip this in the helper
+sample = xml_str[:120]
+f"len={len(xml_str)}, has_record={has_record}, marcxml_prefix_stripped={no_marcxml_prefix}, sample={sample!r}"
+`);
+        setStatus('fetch-authority', true, result);
+      } catch (e) {
+        setStatus('fetch-authority', false, `Fetch failed: ${e.message}`);
+      }
+
+      // ---- 12. Run an actual ead2marc_* conversion on a tiny EAD snippet
+      addStatus('ead2marc-call', '12. Call ead2marc_245 on EAD snippet');
+      try {
+        const result = await pyodide.runPythonAsync(`
+from lxml import etree
+ead_snippet = b"""<?xml version="1.0"?>
+<c01 xmlns="http://ead3.archivists.org/schema/" id="aspace_test123" level="item">
+  <did>
+    <unittitle>Test Title for Pyodide Stage 1</unittitle>
+    <unitid localtype="aspace_uri">/repositories/2/archival_objects/999</unitid>
+  </did>
+</c01>"""
+raw = etree.fromstring(ead_snippet)
+# Set the c0_raw global the script expects
+import builtins
+builtins.c0_raw = raw
+result_xml = ead2marc_245(raw)
+result_str = etree.tostring(result_xml[0], pretty_print=True, encoding="unicode") if result_xml else "(None returned)"
+result_str
+`);
+        setStatus('ead2marc-call', true, 'ead2marc_245 returned a MARC 245 field');
+        addExpandable('ead2marc-call', 'Show generated MARC XML', result);
+      } catch (e) {
+        setStatus('ead2marc-call', false, `Conversion call failed: ${e.message}`);
+        addExpandable('ead2marc-call', 'Full traceback', e.toString());
+      }
+
+      // ---- 13. Try a conversion that calls id.loc.gov (full network round-trip)
+      addStatus('ead2marc-network', '13. Call ead2marc_650 on a subject (network round-trip)');
+      try {
+        const result = await pyodide.runPythonAsync(`
+from lxml import etree
+ead_subject = b"""<?xml version="1.0"?>
+<subject xmlns="http://ead3.archivists.org/schema/" source="lcsh"><part>Piano music</part></subject>"""
+subj = etree.fromstring(ead_subject)
+result_650 = ead2marc_650(subj)
+if result_650:
+    out = etree.tostring(result_650[-1], pretty_print=True, encoding="unicode")
+else:
+    out = "(None returned)"
+out
+`);
+        setStatus('ead2marc-network', true,
+          'ead2marc_650 succeeded — full network round-trip via Pyodide works');
+        addExpandable('ead2marc-network', 'Show generated MARC 650', result);
+      } catch (e) {
+        setStatus('ead2marc-network', false, `Network conversion failed: ${e.message}`);
+        addExpandable('ead2marc-network', 'Full traceback', e.toString());
+      }
+
+      finish();
+    }
+
+    function finish() {
+      const lines = [];
+      lines.push('=== Pyodide Stage 1 — Can v1.84.py run in browser? ===');
+      lines.push('');
+      lines.push(`Origin: ${location.protocol}//${location.host || '(file://)'}`);
+      lines.push(`User Agent: ${navigator.userAgent}`);
+      lines.push(`Timestamp: ${new Date().toISOString()}`);
+      lines.push('');
+      lines.push('Tests:');
+      for (const [id, r] of Object.entries(results)) {
+        const verdict = r.kind === 'skip' ? 'SKIP' : (r.ok ? 'PASS' : 'FAIL');
+        lines.push(`  [${verdict}] ${id}`);
+        lines.push(`         ${r.detail}`);
+      }
+      lines.push('');
+      const passCount = Object.values(results).filter(r => r.ok).length;
+      const totalCount = Object.values(results).length;
+      lines.push(`Score: ${passCount}/${totalCount} passed`);
+      lines.push('');
+      lines.push('Stage 2 viability check:');
+      const must = ['pyodide', 'lxml-load', 'requests-import', 'requests-get',
+                    'fetch-script', 'strip-exec', 'exec-defs',
+                    'helper-url', 'fetch-authority', 'ead2marc-call'];
+      const allMust = must.every(k => results[k]?.ok);
+      lines.push(`  All critical tests pass:  ${allMust ? 'YES — build Stage 2' : 'NO — see failures above'}`);
+      lines.push(`  Network round-trip works: ${results['ead2marc-network']?.ok ? 'YES' : 'NO'}`);
+      const text = lines.join('\n');
+      document.getElementById('summaryText').textContent = text;
+      document.getElementById('summary').style.display = 'block';
+    }
+
+    async function copyResults() {
+      try {
+        await navigator.clipboard.writeText(
+          document.getElementById('summaryText').textContent);
+        const c = document.getElementById('copied');
+        c.style.display = 'inline';
+        setTimeout(() => { c.style.display = 'none'; }, 2000);
+      } catch (e) {
+        alert('Could not copy automatically — please select and copy manually.');
+      }
+    }
+
+    // Wait for the user to pick the script file before running tests
+    document.getElementById('scriptPicker').addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        runTests();
+      }
+    });
+  </script>
+</body>
+</html>

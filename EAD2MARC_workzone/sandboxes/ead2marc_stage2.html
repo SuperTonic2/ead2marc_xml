@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>EAD2MARC_XML — Browser Converter (Stage 2)</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 1000px; margin: 2rem auto; padding: 1rem; color: #222;
+      background: #f7f7f7;
+    }
+    h1 { font-size: 1.8rem; margin-bottom: 0.25rem; }
+    h2 { font-size: 1.2rem; margin-top: 0; }
+    .subtitle { color: #666; margin-top: 0; }
+    section {
+      background: white; padding: 1.25rem 1.5rem; margin: 1rem 0;
+      border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    label { display: block; margin: 0.6rem 0; }
+    .field { margin: 0.6rem 0; }
+    .field-label { font-weight: 500; display: block; margin-bottom: 0.2rem; }
+    input[type=text], select {
+      padding: 0.4rem 0.6rem; font-size: 0.95rem; min-width: 280px;
+      border: 1px solid #ccc; border-radius: 4px;
+    }
+    input[type=file] { padding: 0.3rem; }
+    input[type=radio] { margin-right: 0.4rem; }
+    button {
+      padding: 0.6rem 1.4rem; font-size: 1rem; cursor: pointer;
+      background: #0066cc; color: white; border: none; border-radius: 4px;
+      margin-top: 0.5rem;
+    }
+    button:hover:not(:disabled) { background: #0052a3; }
+    button:disabled { background: #aaa; cursor: not-allowed; }
+    .status {
+      margin: 0.5rem 0; padding: 0.5rem 0.7rem;
+      border-left: 4px solid #888; background: #f8f8f8;
+      font-family: 'Consolas', 'Monaco', monospace; font-size: 0.9rem;
+      border-radius: 2px;
+    }
+    .status.pending { color: #555; }
+    .status.pass { border-color: #2a8c2a; background: #e8f6e8; }
+    .status.fail { border-color: #c33; background: #fde8e8; }
+    .status.info { border-color: #0066cc; background: #eaf4ff; }
+    .messages {
+      background: #f5f5f5; padding: 0.75rem; max-height: 300px;
+      overflow-y: auto; border-radius: 4px; font-family: monospace;
+      font-size: 0.85rem; white-space: pre-wrap;
+    }
+    .messages .msg { margin: 0.15rem 0; }
+    .messages .msg.error { color: #c33; }
+    .messages .msg.warn { color: #b58000; }
+    pre {
+      background: #fff; padding: 1rem; overflow-x: auto;
+      border: 1px solid #ddd; font-size: 0.85rem;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    details { margin-top: 0.5rem; }
+    details summary { cursor: pointer; color: #555; font-size: 0.9rem; }
+    .row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
+    .hidden { display: none; }
+    .download-card {
+      background: #e8f6e8; border: 1px solid #2a8c2a;
+      padding: 1rem; border-radius: 4px; margin-top: 1rem;
+    }
+    .chunk-list { margin-top: 0.75rem; }
+    .chunk-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0.5rem 0.75rem; margin: 0.25rem 0;
+      background: #f5f9ff; border: 1px solid #cfdfff;
+      border-radius: 4px; font-size: 0.9rem;
+    }
+    .chunk-item .chunk-info { font-family: monospace; color: #333; }
+    .chunk-item button {
+      padding: 0.3rem 0.8rem; font-size: 0.85rem; margin: 0;
+      background: #0066cc;
+    }
+    .chunk-help { font-size: 0.85rem; color: #555; margin: 0.5rem 0 0 0; }
+  </style>
+</head>
+<body>
+  <h1>EAD → MARCXML Converter</h1>
+  <p class="subtitle">Browser-based converter using Pyodide + your <code>EAD2MARCv1.84.py</code></p>
+
+  <section id="setupSection">
+    <h2>1. Setup</h2>
+    <div id="setupStatus" class="status pending">Loading Pyodide + dependencies (~30-60s on first load)…</div>
+    <div class="field">
+      <span class="field-label">Select your <code>EAD2MARCv1.84.py</code> file (one folder up from this HTML):</span>
+      <input type="file" id="scriptPicker" accept=".py" disabled>
+    </div>
+    <div id="scriptStatus" class="status pending hidden">Waiting for script…</div>
+  </section>
+
+  <section id="inputSection">
+    <h2>2. Convert</h2>
+    <div class="field">
+      <span class="field-label">EAD3 XML file:</span>
+      <input type="file" id="eadPicker" accept=".xml,.ead">
+    </div>
+
+    <div class="field">
+      <span class="field-label">Parse by:</span>
+      <label><input type="radio" name="parseType" value="2" checked> Hierarchy level (most common)</label>
+      <label><input type="radio" name="parseType" value="1"> Specific ASpace ID</label>
+    </div>
+
+    <div id="parseTypeOptions">
+      <div class="field" id="levelField">
+        <span class="field-label">Hierarchy level:</span>
+        <select id="targetLevel">
+          <option value="collection">collection (top-level archdesc)</option>
+          <option value="item" selected>item</option>
+          <option value="series">series</option>
+          <option value="subseries">subseries</option>
+          <option value="file">file</option>
+          <option value="otherlevel">otherlevel</option>
+        </select>
+      </div>
+      <div class="field" id="idField" style="display:none;">
+        <span class="field-label">ASpace ID:</span>
+        <input type="text" id="targetId" placeholder="e.g., aspace_82a259bf0d95...">
+      </div>
+      <div class="field" id="rangeField">
+        <span class="field-label">Record range (optional — blank for all):</span>
+        <input type="text" id="recRange" placeholder="e.g., 1-20 or :5 or 10:">
+      </div>
+    </div>
+
+    <div class="field">
+      <span class="field-label">Chunk size (intermediate saves for long runs):</span>
+      <select id="chunkSize">
+        <option value="0">No chunking — one download at the end</option>
+        <option value="25" selected>25 records per chunk</option>
+        <option value="50">50 records per chunk</option>
+        <option value="100">100 records per chunk</option>
+      </select>
+      <p class="chunk-help">
+        With chunking on, each chunk appears below with its own Download button as it completes.
+        Downloads are optional — only useful if the run crashes before the full collection finishes.
+        The full collection is still produced at the end.
+      </p>
+    </div>
+
+    <button id="convertBtn" disabled>Convert to MARCXML</button>
+  </section>
+
+  <section id="progressSection" class="hidden">
+    <h2>3. Progress</h2>
+    <div id="progressStatus" class="status info">Initializing…</div>
+    <div class="messages" id="progressMessages"></div>
+  </section>
+
+  <section id="chunkSection" class="hidden">
+    <h2>Chunks (as they complete)</h2>
+    <p class="chunk-help">
+      Each chunk is a self-contained <code>&lt;marc:collection&gt;</code> of its records.
+      Click Download on any chunk you want to save for crash recovery.
+      Once the run finishes, the full collection (all records combined) appears in section 4 below.
+    </p>
+    <div class="chunk-list" id="chunkList"></div>
+  </section>
+
+  <section id="resultSection" class="hidden">
+    <h2>4. Result</h2>
+    <div class="download-card">
+      <div id="resultSummary"></div>
+      <button id="downloadBtn">Download MARCXML</button>
+    </div>
+    <details>
+      <summary>Show conversion log</summary>
+      <pre id="conversionLog"></pre>
+    </details>
+    <details>
+      <summary>Preview MARCXML output (first 2000 chars)</summary>
+      <pre id="resultPreview"></pre>
+    </details>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+  <script>
+    let pyodide = null;
+    let scriptLoaded = false;
+    let lastResultBlob = null;
+    let lastResultFilename = null;
+    let chunksStored = [];      // {chunkNum, totalChunks, rangeStart, rangeEnd, blob, filename}
+    let conversionTimestamp = '';  // Set at the start of each conversion so all chunks share it
+
+    function getConversionTimestamp() {
+      const now = new Date();
+      return now.getFullYear().toString() +
+             String(now.getMonth() + 1).padStart(2, '0') +
+             String(now.getDate()).padStart(2, '0') + '_' +
+             String(now.getHours()).padStart(2, '0') +
+             String(now.getMinutes()).padStart(2, '0');
+    }
+
+    function formatBytes(n) {
+      if (n < 1024) return n + ' B';
+      if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+      return (n / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+
+    function triggerDownload(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function addChunkCard(xml, chunkNum, totalChunks, rangeStart, rangeEnd) {
+      const blob = new Blob([xml], { type: 'application/xml' });
+      const filename = `collectiontest_${conversionTimestamp}_chunk_` +
+                       `${String(chunkNum).padStart(3, '0')}_of_` +
+                       `${String(totalChunks).padStart(3, '0')}.xml`;
+      const idx = chunksStored.length;
+      chunksStored.push({ chunkNum, totalChunks, rangeStart, rangeEnd, blob, filename });
+
+      const card = document.createElement('div');
+      card.className = 'chunk-item';
+      const info = document.createElement('div');
+      info.className = 'chunk-info';
+      info.innerHTML =
+        `<strong>Chunk ${String(chunkNum).padStart(3, '0')}</strong> of ` +
+        `${String(totalChunks).padStart(3, '0')} &mdash; ` +
+        `records ${rangeStart}-${rangeEnd} &mdash; ` +
+        `${formatBytes(blob.size)}`;
+      const btn = document.createElement('button');
+      btn.textContent = 'Download';
+      btn.addEventListener('click', () => {
+        const c = chunksStored[idx];
+        triggerDownload(c.blob, c.filename);
+      });
+      card.appendChild(info);
+      card.appendChild(btn);
+      document.getElementById('chunkList').appendChild(card);
+      document.getElementById('chunkSection').classList.remove('hidden');
+    }
+
+    function setSetupStatus(msg, kind) {
+      const el = document.getElementById('setupStatus');
+      el.textContent = msg;
+      el.className = 'status ' + (kind || 'pending');
+    }
+    function setScriptStatus(msg, kind) {
+      const el = document.getElementById('scriptStatus');
+      el.classList.remove('hidden');
+      el.textContent = msg;
+      el.className = 'status ' + (kind || 'pending');
+    }
+    function setProgressStatus(msg, kind) {
+      const el = document.getElementById('progressStatus');
+      el.textContent = msg;
+      el.className = 'status ' + (kind || 'info');
+    }
+    function pushProgressMsg(msg, kind) {
+      const wrap = document.getElementById('progressMessages');
+      const div = document.createElement('div');
+      div.className = 'msg ' + (kind || '');
+      div.textContent = msg;
+      wrap.appendChild(div);
+      wrap.scrollTop = wrap.scrollHeight;
+    }
+    function maybeEnableConvert() {
+      const eadPicked = document.getElementById('eadPicker').files.length > 0;
+      document.getElementById('convertBtn').disabled = !(pyodide && scriptLoaded && eadPicked);
+    }
+
+    // ---- Bootstrap Pyodide and dependencies ----
+    async function bootstrap() {
+      try {
+        setSetupStatus('Loading Pyodide runtime…', 'pending');
+        pyodide = await loadPyodide();
+
+        setSetupStatus('Loading lxml package…', 'pending');
+        await pyodide.loadPackage('lxml');
+
+        setSetupStatus('Loading micropip…', 'pending');
+        await pyodide.loadPackage('micropip');
+
+        setSetupStatus('Installing requests…', 'pending');
+        await pyodide.runPythonAsync(`
+import micropip
+await micropip.install('requests')
+`);
+
+        setSetupStatus('Installing pycallnumber…', 'pending');
+        await pyodide.runPythonAsync(`
+import micropip
+await micropip.install('pycallnumber')
+`);
+
+        setSetupStatus(`Pyodide ${pyodide.version} ready. Now select your EAD2MARCv1.84.py file.`, 'pass');
+        document.getElementById('scriptPicker').disabled = false;
+        maybeEnableConvert();
+      } catch (e) {
+        setSetupStatus('Setup failed: ' + e.message, 'fail');
+      }
+    }
+
+    // ---- Load v1.84.py source on file pick ----
+    document.getElementById('scriptPicker').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      setScriptStatus(`Loading ${file.name}…`, 'pending');
+      try {
+        const src = await file.text();
+        const marker = 'tree = etree.parse(';
+        const idx = src.indexOf(marker);
+        if (idx === -1) {
+          setScriptStatus('Could not find boundary marker in script. Wrong file?', 'fail');
+          return;
+        }
+        const defsOnly = src.slice(0, idx);
+
+        pyodide.globals.set('script_src', defsOnly);
+        await pyodide.runPythonAsync(`exec(script_src, globals())`);
+
+        // Define the convert function in the same globals namespace
+        await pyodide.runPythonAsync(CONVERTER_PY);
+
+        scriptLoaded = true;
+        setScriptStatus(
+          `Loaded ${defsOnly.length.toLocaleString()} chars of definitions from ${file.name}. ` +
+          `Ready to convert.`,
+          'pass'
+        );
+        maybeEnableConvert();
+      } catch (err) {
+        setScriptStatus('Script load failed: ' + err.message, 'fail');
+      }
+    });
+
+    // ---- UI toggles ----
+    document.querySelectorAll('input[name=parseType]').forEach(r => {
+      r.addEventListener('change', () => {
+        const isLevel = document.querySelector('input[name=parseType]:checked').value === '2';
+        document.getElementById('levelField').style.display = isLevel ? '' : 'none';
+        document.getElementById('rangeField').style.display = isLevel ? '' : 'none';
+        document.getElementById('idField').style.display = isLevel ? 'none' : '';
+      });
+    });
+    document.getElementById('eadPicker').addEventListener('change', maybeEnableConvert);
+
+    // ---- Convert ----
+    document.getElementById('convertBtn').addEventListener('click', async () => {
+      const eadFile = document.getElementById('eadPicker').files[0];
+      if (!eadFile) return;
+
+      const parseType = document.querySelector('input[name=parseType]:checked').value;
+      const target = parseType === '1'
+        ? document.getElementById('targetId').value.trim()
+        : document.getElementById('targetLevel').value;
+      const recRange = parseType === '2'
+        ? document.getElementById('recRange').value.trim()
+        : '';
+      const chunkSize = parseInt(document.getElementById('chunkSize').value, 10) || 0;
+
+      // Reset chunk state for this run and set a shared timestamp for all chunk filenames.
+      chunksStored = [];
+      conversionTimestamp = getConversionTimestamp();
+      document.getElementById('chunkList').innerHTML = '';
+      document.getElementById('chunkSection').classList.add('hidden');
+
+      document.getElementById('progressSection').classList.remove('hidden');
+      document.getElementById('resultSection').classList.add('hidden');
+      document.getElementById('progressMessages').innerHTML = '';
+      document.getElementById('convertBtn').disabled = true;
+      setProgressStatus('Reading EAD file…', 'info');
+
+      try {
+        const eadBytes = new Uint8Array(await eadFile.arrayBuffer());
+        pyodide.globals.set('_ead_bytes', eadBytes);
+        pyodide.globals.set('_parse_type', parseType);
+        pyodide.globals.set('_target', target);
+        pyodide.globals.set('_rec_range', recRange);
+        pyodide.globals.set('_chunk_size', chunkSize);
+
+        // Expose JS progress hook to Python
+        pyodide.globals.set('_js_progress', (msg, kind) => {
+          pushProgressMsg(msg, kind);
+          if (kind === 'status') setProgressStatus(msg, 'info');
+        });
+        // Expose chunk handler so Python can hand off chunk XML as records complete
+        pyodide.globals.set('_chunk_handler', (xml, chunkNum, totalChunks, rangeStart, rangeEnd) => {
+          addChunkCard(xml, chunkNum, totalChunks, rangeStart, rangeEnd);
+        });
+
+        setProgressStatus('Converting (this may take a while if there are many records)…', 'info');
+
+        const result = await pyodide.runPythonAsync(`
+result_tuple = await convert_async(
+    bytes(_ead_bytes), _parse_type, _target, _rec_range,
+    chunk_size=_chunk_size,
+    progress=_js_progress,
+    chunk_handler=_chunk_handler
+)
+result_tuple
+`);
+
+        const [marcxml, log, count] = result.toJs({ create_proxies: false });
+
+        if (!marcxml) {
+          setProgressStatus('Conversion produced no output.', 'fail');
+          pushProgressMsg('See log messages for details.', 'error');
+          log.forEach(m => pushProgressMsg(m,
+            m.toLowerCase().includes('error') ? 'error' :
+            m.toLowerCase().includes('warning') ? 'warn' : ''));
+          document.getElementById('convertBtn').disabled = false;
+          return;
+        }
+
+        // Build download blob
+        const blob = new Blob([marcxml], { type: 'application/xml' });
+        lastResultBlob = blob;
+        const now = new Date();
+        const ts = now.getFullYear().toString() +
+                   String(now.getMonth() + 1).padStart(2, '0') +
+                   String(now.getDate()).padStart(2, '0') + '_' +
+                   String(now.getHours()).padStart(2, '0') +
+                   String(now.getMinutes()).padStart(2, '0');
+        lastResultFilename = `collectiontest_${ts}.xml`;
+
+        // Show result
+        setProgressStatus(`Done — ${count} record${count === 1 ? '' : 's'} converted.`, 'pass');
+        document.getElementById('resultSection').classList.remove('hidden');
+        document.getElementById('resultSummary').innerHTML =
+          `<strong>${count} record${count === 1 ? '' : 's'}</strong> converted.<br>` +
+          `Output size: ${marcxml.length.toLocaleString()} characters (~${(marcxml.length / 1024).toFixed(1)} KB).<br>` +
+          `Suggested filename: <code>${lastResultFilename}</code>`;
+        document.getElementById('conversionLog').textContent = log.join('\n');
+        document.getElementById('resultPreview').textContent = marcxml.slice(0, 2000) + (marcxml.length > 2000 ? '\n…(truncated)' : '');
+        document.getElementById('convertBtn').disabled = false;
+      } catch (err) {
+        setProgressStatus('Conversion failed: ' + err.message, 'fail');
+        pushProgressMsg(err.toString(), 'error');
+        document.getElementById('convertBtn').disabled = false;
+      }
+    });
+
+    document.getElementById('downloadBtn').addEventListener('click', () => {
+      if (!lastResultBlob) return;
+      triggerDownload(lastResultBlob, lastResultFilename);
+    });
+
+    // ---- Python converter (driver around v1.84.py functions) ----
+    const CONVERTER_PY = String.raw`
+import asyncio
+import io
+import sys
+
+async def convert_async(ead_bytes, parse_type, target, rec_range_str,
+                        chunk_size=0, progress=None, chunk_handler=None):
+    """Browser driver around v1.84.py's ead2marc_rec(). Returns (marcxml_str, log_list, record_count).
+
+    chunk_size > 0 turns on intermediate chunking: every chunk_size INPUT records,
+    chunk_handler(chunk_xml, chunks_emitted, total_chunks, range_start, range_end)
+    is called with a self-contained <marc:collection> string for that chunk.
+    """
+    from lxml import etree
+    from copy import deepcopy
+    import time, html as _html, re as _re, builtins, traceback
+
+    log = []
+    def emit(msg, kind=''):
+        log.append(msg)
+        if progress is not None:
+            progress(msg, kind)
+
+    # Helper that wraps a list of <marc:record> elements in a <marc:collection>
+    # and returns the serialized string. Used for chunked saves AND the final
+    # full collection, so the format is identical.
+    def build_collection_str(records):
+        coll = etree.Element(
+            "{http://www.loc.gov/MARC21/slim}collection",
+            nsmap={
+                "marc": "http://www.loc.gov/MARC21/slim",
+                "xsi": "http://www.w3.org/2001/XMLSchema-instance",
+            }
+        )
+        coll.set(
+            "{http://www.w3.org/2001/XMLSchema-instance}schemaLocation",
+            "http://www.loc.gov/MARC21/slim http://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd"
+        )
+        # deepcopy because the same <marc:record> goes into BOTH a chunk collection
+        # and the final full collection; lxml would otherwise move (not copy) on append.
+        for r in records:
+            coll.append(deepcopy(r))
+        s = etree.tostring(coll, pretty_print=True, xml_declaration=True, encoding="UTF-8").decode("UTF-8")
+        s = _re.sub(
+            r'<(marc:datafield) ind1="(.)" ind2="(.)" tag="(\d+)">',
+            r'<\1 tag="\4" ind1="\2" ind2="\3">',
+            s
+        )
+        return s
+
+    # Capture script stdout (e.g., 'Connection to id.loc.gov timed out' warnings)
+    stdout_buf = io.StringIO()
+    old_stdout = sys.stdout
+    sys.stdout = stdout_buf
+
+    try:
+        # Parse EAD
+        try:
+            root = etree.fromstring(ead_bytes)
+        except etree.XMLSyntaxError as e:
+            return None, [f"ERROR: EAD file is not valid XML: {e}"], 0
+
+        if 'http://ead3.archivists.org/schema/' not in root.tag:
+            return None, ["ERROR: File must be EAD3 (not EAD 2002 or other)."], 0
+
+        emit("EAD parsed; locating target records…", 'status')
+
+        # Locate target records (mirrors v1.84.py lines 5354-5392)
+        if parse_type == "1":
+            if not target:
+                return None, ["ERROR: ASpace ID is empty."], 0
+            result = root.xpath(
+                "//*[(local-name()='c' or (starts-with(local-name(), 'c') and string-length(local-name())=3)) and @id=$t_id]",
+                t_id=target
+            )
+        elif parse_type == "2":
+            if target == "collection":
+                archdesc_list = root.xpath("//*[local-name()='archdesc']")
+                if not archdesc_list:
+                    return None, ["ERROR: No <archdesc> found in EAD."], 0
+                archdesc_copy = deepcopy(archdesc_list[0])
+                for dsc in archdesc_copy.xpath(".//*[local-name()='dsc']"):
+                    dsc.getparent().remove(dsc)
+                result = [archdesc_copy]
+            else:
+                result = root.xpath(
+                    "//*[(local-name()='c' or (starts-with(local-name(), 'c') and string-length(local-name()) <= 3)) and @level=$t_lvl]",
+                    t_lvl=target
+                )
+            emit(f"Found {len(result)} records at level '{target}'.")
+            if rec_range_str:
+                try:
+                    if '-' in rec_range_str and not rec_range_str.startswith('-') and ':' not in rec_range_str:
+                        parts = rec_range_str.split('-')
+                        start = int(parts[0]) - 1
+                        end = int(parts[1])
+                        result = result[start:end]
+                    else:
+                        result = eval(f"result[{rec_range_str}]")
+                    emit(f"Range '{rec_range_str}' → processing {len(result)} records.")
+                except (ValueError, IndexError, SyntaxError):
+                    emit(f"WARNING: Could not parse range '{rec_range_str}'. Processing all records.", 'warn')
+        else:
+            return None, [f"ERROR: parse_type must be '1' or '2', got '{parse_type}'."], 0
+
+        if not result:
+            return None, log + ["ERROR: No matching records found."], 0
+
+        # Set the root global the script's functions read
+        builtins.root = root
+
+        all_rec_xml_list = []
+        chunk_records = []          # records accumulated for the current chunk
+        chunks_emitted = 0          # how many chunks have been built so far
+        total_chunks = (len(result) + chunk_size - 1) // chunk_size if chunk_size > 0 else 0
+        total_start_time = time.time()
+
+        # Publish 'result' as a global so ead2marc_rec can read len(result) for progress messages
+        builtins.result = result
+
+        for rec_index, c0_raw in enumerate(result, 1):
+            rec_start_time = time.time()
+            # Publish per-iteration loop variables as globals (ead2marc_rec reads rec_index, rec_start_time)
+            builtins.rec_index = rec_index
+            builtins.rec_start_time = rec_start_time
+
+            # vaid_clean (mirrors v1.84.py lines 5402-5412)
+            vaid_clean = ""
+            vaid_fetch = root.xpath(".//*[local-name()='recordid']")
+            if vaid_fetch:
+                vaid_raw = vaid_fetch[0]
+                vaid_clean = vaid_raw.xpath("string()").strip(".")
+                vaid_head_list = vaid_raw.xpath(".//*[local-name()='head']")
+                if vaid_head_list:
+                    vaid_head = vaid_head_list[0].xpath("string()").strip(".")
+                    vaid_clean = vaid_clean.replace(vaid_head, "")
+                vaid_clean = _html.escape(vaid_clean)
+
+            # Names lists (mirrors v1.84.py lines 5414-5455)
+            names_list = c0_raw.xpath(".//*[local-name()='origination']")
+            all_persnames_list = []
+            all_corpnames_list = []
+            all_famnames_list = []
+            creator_names_list = []
+            creator_persnames_list = []
+            creator_corpnames_list = []
+            creator_famnames_list = []
+            source_names_list = []
+            source_persnames_list = []
+            source_corpnames_list = []
+            source_famnames_list = []
+            for orig in names_list:
+                label = orig.attrib.get("label", "").lower()
+                if label == "creator":
+                    creator_names_list.append(orig)
+                elif label == "source":
+                    source_names_list.append(orig)
+            for orig in names_list:
+                label = orig.attrib.get("label", "").lower()
+                if orig.xpath(".//*[local-name()='persname']"):
+                    all_persnames_list.append(orig)
+                    if label == "creator":
+                        creator_persnames_list.append(orig)
+                    elif label == "source":
+                        source_persnames_list.append(orig)
+                elif orig.xpath(".//*[local-name()='corpname']"):
+                    all_corpnames_list.append(orig)
+                    if label == "creator":
+                        creator_corpnames_list.append(orig)
+                    elif label == "source":
+                        source_corpnames_list.append(orig)
+                elif orig.xpath(".//*[local-name()='famname']"):
+                    all_famnames_list.append(orig)
+                    if label == "creator":
+                        creator_famnames_list.append(orig)
+                    elif label == "source":
+                        source_famnames_list.append(orig)
+
+            # Subject lists (mirrors v1.84.py lines 5457-5491)
+            subjs_list = []
+            subj_persnames_list = []
+            subj_corpnames_list = []
+            subj_famnames_list = []
+            subj_titles_list = []
+            subj_geognames_list = []
+            subj_function_list = []
+            subj_gft_list = []
+            subj_occ_list = []
+            subj_topic_list = []
+            ca_fetch = c0_raw.xpath(".//*[local-name()='controlaccess']")
+            if ca_fetch:
+                ca_xml = ca_fetch[0]
+                for ca_comp in ca_xml:
+                    subjs_list.append(ca_comp)
+                    if "persname" in ca_comp.tag: subj_persnames_list.append(ca_comp)
+                    elif "corpname" in ca_comp.tag: subj_corpnames_list.append(ca_comp)
+                    elif "famname" in ca_comp.tag: subj_famnames_list.append(ca_comp)
+                    elif "geogname" in ca_comp.tag: subj_geognames_list.append(ca_comp)
+                    elif "genreform" in ca_comp.tag: subj_gft_list.append(ca_comp)
+                    elif "function" in ca_comp.tag: subj_function_list.append(ca_comp)
+                    elif "occupation" in ca_comp.tag: subj_occ_list.append(ca_comp)
+                    elif "subject" in ca_comp.tag: subj_topic_list.append(ca_comp)
+                    elif "title" in ca_comp.tag: subj_titles_list.append(ca_comp)
+
+            # Publish all the script-expected globals
+            for _n in (
+                'c0_raw','vaid_clean','names_list',
+                'all_persnames_list','all_corpnames_list','all_famnames_list',
+                'creator_names_list','creator_persnames_list','creator_corpnames_list','creator_famnames_list',
+                'source_names_list','source_persnames_list','source_corpnames_list','source_famnames_list',
+                'subjs_list','subj_persnames_list','subj_corpnames_list','subj_famnames_list',
+                'subj_titles_list','subj_geognames_list','subj_function_list','subj_gft_list',
+                'subj_occ_list','subj_topic_list',
+            ):
+                setattr(builtins, _n, locals()[_n])
+
+            emit(f"Record {rec_index}/{len(result)} — processing…", 'status')
+
+            # Run the conversion with per-record error catching so one bad record
+            # doesn't kill the whole batch.
+            rec_xml = None
+            try:
+                rec_xml = ead2marc_rec(c0_raw)
+            except Exception as _e:
+                emit(f"Record {rec_index}/{len(result)} FAILED — skipping: {type(_e).__name__}: {_e}", 'error')
+                for _tb_line in traceback.format_exc().split('\n'):
+                    if _tb_line.strip():
+                        emit("    " + _tb_line, 'error')
+
+            if rec_xml is not None:
+                all_rec_xml_list.append(rec_xml)
+                if chunk_size > 0:
+                    chunk_records.append(rec_xml)
+
+            elapsed = time.time() - rec_start_time
+
+            # Extract a friendly title from the converted record for the log line
+            title = ""
+            if rec_xml is not None:
+                t = rec_xml.xpath(".//*[local-name()='datafield' and @tag='245']/*[local-name()='subfield' and @code='a']")
+                if t:
+                    title = t[0].text or ""
+                    if len(title) > 60:
+                        title = title[:60] + "…"
+            emit(f"Record {rec_index}/{len(result)} done in {elapsed:.1f}s — {title}")
+
+            # Emit a chunk every chunk_size INPUT records (whether they succeeded
+            # or not). Chunk boundaries stay aligned with input record positions,
+            # so chunk 003 is always records 51-75 (at chunk_size=25), regardless
+            # of any failures inside that window.
+            if chunk_size > 0 and rec_index % chunk_size == 0:
+                chunks_emitted += 1
+                if chunk_records:
+                    chunk_xml = build_collection_str(chunk_records)
+                    _rng_end = rec_index
+                    _rng_start = rec_index - chunk_size + 1
+                    if chunk_handler is not None:
+                        chunk_handler(chunk_xml, chunks_emitted, total_chunks, _rng_start, _rng_end)
+                    emit(f"Chunk {chunks_emitted}/{total_chunks} ready "
+                         f"(records {_rng_start}-{_rng_end}, {len(chunk_xml):,} chars).")
+                else:
+                    emit(f"Chunk {chunks_emitted}/{total_chunks} EMPTY "
+                         f"(all {chunk_size} input records in this range failed).", 'warn')
+                chunk_records = []
+
+            # Yield to the browser so the UI can update
+            await asyncio.sleep(0)
+
+        # Emit any leftover partial chunk (when record count isn't an exact
+        # multiple of chunk_size, or when the last chunk's window had failures).
+        if chunk_size > 0 and chunk_records:
+            chunks_emitted += 1
+            chunk_xml = build_collection_str(chunk_records)
+            _rng_end = len(result)
+            _rng_start = len(result) - len(chunk_records) + 1
+            if chunk_handler is not None:
+                chunk_handler(chunk_xml, chunks_emitted,
+                              max(chunks_emitted, total_chunks),
+                              _rng_start, _rng_end)
+            emit(f"Final chunk {chunks_emitted} ready "
+                 f"(records {_rng_start}-{_rng_end}, {len(chunk_xml):,} chars).")
+
+        total_elapsed = time.time() - total_start_time
+        emit(f"All {len(result)} records processed in {total_elapsed:.1f}s.")
+
+        # Append any captured stdout (warnings from the script) to the log
+        sys.stdout = old_stdout
+        captured = stdout_buf.getvalue()
+        if captured.strip():
+            for line in captured.strip().split('\n'):
+                if line.strip():
+                    kind = 'warn' if 'WARNING' in line else ''
+                    emit(line, kind)
+
+        if not all_rec_xml_list:
+            return None, log + ["ERROR: No records produced output."], 0
+
+        emit("Compiling all records into the full MARC collection…", 'status')
+        collection_str = build_collection_str(all_rec_xml_list)
+
+        return collection_str, log, len(all_rec_xml_list)
+    finally:
+        sys.stdout = old_stdout
+`;
+
+    bootstrap();
+  </script>
+</body>
+</html>
