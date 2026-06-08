@@ -100,6 +100,17 @@
     </div>
 
     <div class="field">
+      <span class="field-label">Resume from saved chunks (optional, multi-select):</span>
+      <input type="file" id="chunkResumePicker" accept=".xml" multiple autocomplete="off">
+      <div id="chunkResumeStatus" class="status pending hidden" style="margin-top:0.5rem;">No chunks selected.</div>
+      <p class="chunk-help">
+        If a previous run died midway, pick the <code>.recs.xml</code> chunk files you saved.
+        Their records get included in the final collection and excluded from re-conversion
+        (matched by ASpace ID), so the run only does the records still missing.
+      </p>
+    </div>
+
+    <div class="field">
       <span class="field-label">Parse by:</span>
       <label><input type="radio" name="parseType" value="2" checked> Hierarchy level (most common)</label>
       <label><input type="radio" name="parseType" value="1"> Specific ASpace ID</label>
@@ -128,17 +139,12 @@
     </div>
 
     <div class="field">
-      <span class="field-label">Chunk size (intermediate saves for long runs):</span>
-      <select id="chunkSize">
-        <option value="0">No chunking — one download at the end</option>
-        <option value="25" selected>25 records per chunk</option>
-        <option value="50">50 records per chunk</option>
-        <option value="100">100 records per chunk</option>
-      </select>
+      <span class="field-label">Chunk size (intermediate saves for long runs; 0 = no chunking):</span>
+      <input type="number" id="chunkSize" value="25" min="0" step="1" inputmode="numeric" pattern="[0-9]*" style="width:120px;">
       <p class="chunk-help">
         With chunking on, each chunk appears below with its own Download button as it completes.
         Downloads are optional — only useful if the run crashes before the full collection finishes.
-        The full collection is still produced at the end.
+        The full collection is still produced at the end. Set to 0 for one download at the end.
       </p>
     </div>
 
@@ -148,15 +154,20 @@
   <section id="progressSection" class="hidden">
     <h2>3. Progress</h2>
     <div id="progressStatus" class="status info">Initializing…</div>
-    <div class="messages" id="progressMessages"></div>
+    <details id="logDetails" open>
+      <summary>Conversion log (live — click to collapse/expand)</summary>
+      <div class="messages" id="progressMessages"></div>
+    </details>
   </section>
 
   <section id="chunkSection" class="hidden">
     <h2>Chunks (as they complete)</h2>
     <p class="chunk-help">
-      Each chunk is a self-contained <code>&lt;marc:collection&gt;</code> of its records.
-      Click Download on any chunk you want to save for crash recovery.
-      Once the run finishes, the full collection (all records combined) appears in section 4 below.
+      Each chunk is a raw <code>&lt;marc:record&gt;</code> fragment file (<code>.recs.xml</code>) —
+      not a complete MARCXML collection on its own. Click Download on any chunk you want to save
+      for crash recovery. To turn chunks back into a usable collection, either rerun this page with
+      the chunks selected in the &ldquo;Resume from saved chunks&rdquo; picker (section 2), or
+      use the &ldquo;Combine chunks&rdquo; utility at the bottom of this page.
     </p>
     <div class="chunk-list" id="chunkList"></div>
   </section>
@@ -177,6 +188,22 @@
     </details>
   </section>
 
+  <section id="combineSection">
+    <h2>Combine chunks into a collection (utility)</h2>
+    <p class="chunk-help">
+      Standalone tool — no conversion needed. Select any number of chunk files
+      (<code>.recs.xml</code>) and merge them into a single
+      <code>&lt;marc:collection&gt;</code> XML file you can load into MARCEdit or Alma.
+      Useful when a previous run died and you want to assemble what was saved
+      without redoing any conversion.
+    </p>
+    <div class="field">
+      <input type="file" id="combinePicker" accept=".xml" multiple>
+    </div>
+    <div id="combineStatus" class="status pending hidden">No chunks selected.</div>
+    <button id="combineBtn" disabled style="margin-top:0.75rem;">Combine and Download</button>
+  </section>
+
   <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
   <script>
     let pyodide = null;
@@ -185,6 +212,58 @@
     let lastResultFilename = null;
     let chunksStored = [];      // {chunkNum, totalChunks, rangeStart, rangeEnd, blob, filename}
     let conversionTimestamp = '';  // Set at the start of each conversion so all chunks share it
+    let uploadedChunkTexts = [];   // Raw text content of each uploaded chunk file
+    let uploadedSkipIds = new Set(); // ASpace IDs already covered by uploaded chunks
+    let combineParsedTexts = [];   // For the standalone Combine utility (independent of conversion)
+    let combineRecordCount = 0;
+    const NS_MARC = 'http://www.loc.gov/MARC21/slim';
+
+    // Parse one uploaded chunk file: extract identifiers for skip-set matching.
+    // For each record, we try TWO identifiers (prefix-tagged so a title can't
+    // collide with an ASpace ID):
+    //   id:aspace_xxx   — from 856 $u (only present if the EAD has a recordid/vaid)
+    //   title:foo       — from 245 $a (always present for any EAD record)
+    // The Python side checks the current record's ASpace @id and unittitle text
+    // against the same set, so either form lets a record be skipped.
+    async function parseChunkFile(file) {
+      const text = await file.text();
+      // Chunk files are raw <marc:record> fragments (Format B), so they're NOT
+      // standalone valid XML. Wrap them in a generic root so DOMParser can read.
+      const wrapped = `<temp xmlns:marc="${NS_MARC}">${text}</temp>`;
+      const doc = new DOMParser().parseFromString(wrapped, 'application/xml');
+      const err = doc.querySelector('parsererror');
+      if (err) {
+        throw new Error(`Could not parse "${file.name}": ${err.textContent.slice(0, 200)}`);
+      }
+      const records = doc.getElementsByTagNameNS(NS_MARC, 'record');
+      const ids = [];
+      for (let i = 0; i < records.length; i++) {
+        const datafields = records[i].getElementsByTagNameNS(NS_MARC, 'datafield');
+        for (let j = 0; j < datafields.length; j++) {
+          const tag = datafields[j].getAttribute('tag');
+          if (tag !== '856' && tag !== '245') continue;
+          const subs = datafields[j].getElementsByTagNameNS(NS_MARC, 'subfield');
+          for (let k = 0; k < subs.length; k++) {
+            const code = subs[k].getAttribute('code');
+            const text = (subs[k].textContent || '').trim();
+            if (tag === '856' && code === 'u') {
+              const m = text.match(/aspace_[a-f0-9]+/);
+              if (m) ids.push('id:' + m[0]);
+            } else if (tag === '245' && code === 'a' && text) {
+              ids.push('title:' + text);
+            }
+          }
+        }
+      }
+      return { rawText: text, recordCount: records.length, ids };
+    }
+
+    function setChunkResumeStatus(msg, kind) {
+      const el = document.getElementById('chunkResumeStatus');
+      el.classList.remove('hidden');
+      el.textContent = msg;
+      el.className = 'status ' + (kind || 'pending');
+    }
 
     function getConversionTimestamp() {
       const now = new Date();
@@ -214,9 +293,12 @@
 
     function addChunkCard(xml, chunkNum, totalChunks, rangeStart, rangeEnd) {
       const blob = new Blob([xml], { type: 'application/xml' });
+      // Chunks are raw record fragments, not full collections. The .recs.xml
+      // suffix flags this so users (and the resume picker) can distinguish
+      // a chunk from a finished collection.
       const filename = `collectiontest_${conversionTimestamp}_chunk_` +
                        `${String(chunkNum).padStart(3, '0')}_of_` +
-                       `${String(totalChunks).padStart(3, '0')}.xml`;
+                       `${String(totalChunks).padStart(3, '0')}.recs.xml`;
       const idx = chunksStored.length;
       chunksStored.push({ chunkNum, totalChunks, rangeStart, rangeEnd, blob, filename });
 
@@ -346,6 +428,112 @@ await micropip.install('pycallnumber')
     });
     document.getElementById('eadPicker').addEventListener('change', maybeEnableConvert);
 
+    // Physically prevent non-digit input on the chunk size box. Catches typed
+    // characters, paste, drag-and-drop. type="number" already shows spinners and
+    // sets a numeric keyboard on mobile via inputmode, but it still allows '-',
+    // '.', and 'e' in most browsers — this strips those on the fly.
+    document.getElementById('chunkSize').addEventListener('input', (e) => {
+      const cleaned = e.target.value.replace(/[^0-9]/g, '');
+      if (cleaned !== e.target.value) e.target.value = cleaned;
+    });
+    // Safety net for the cases the input filter can't catch (e.g. Firefox sometimes
+    // shows letters transiently in type="number" fields without firing 'input'):
+    // when the user clicks away, snap any invalid or empty value back to "25".
+    document.getElementById('chunkSize').addEventListener('blur', (e) => {
+      const val = e.target.value.trim();
+      if (val === '' || !/^[0-9]+$/.test(val)) e.target.value = '25';
+    });
+
+    // ---- Standalone Combine utility ----
+    function setCombineStatus(msg, kind) {
+      const el = document.getElementById('combineStatus');
+      el.classList.remove('hidden');
+      el.textContent = msg;
+      el.className = 'status ' + (kind || 'pending');
+    }
+    document.getElementById('combinePicker').addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files);
+      combineParsedTexts = [];
+      combineRecordCount = 0;
+      if (files.length === 0) {
+        setCombineStatus('No chunks selected.', 'pending');
+        document.getElementById('combineBtn').disabled = true;
+        return;
+      }
+      setCombineStatus(`Parsing ${files.length} chunk file${files.length === 1 ? '' : 's'}…`, 'pending');
+      try {
+        for (const f of files) {
+          const parsed = await parseChunkFile(f);
+          combineParsedTexts.push(parsed.rawText);
+          combineRecordCount += parsed.recordCount;
+        }
+        setCombineStatus(
+          `Loaded ${files.length} chunk file${files.length === 1 ? '' : 's'} — ` +
+          `${combineRecordCount} records ready to combine.`,
+          'pass'
+        );
+        document.getElementById('combineBtn').disabled = false;
+      } catch (err) {
+        combineParsedTexts = [];
+        combineRecordCount = 0;
+        setCombineStatus('ERROR: ' + err.message, 'fail');
+        document.getElementById('combineBtn').disabled = true;
+      }
+    });
+    document.getElementById('combineBtn').addEventListener('click', () => {
+      if (combineParsedTexts.length === 0) return;
+      // Wrap the concatenated record fragments in a real <marc:collection>.
+      // Each fragment carries its own xmlns:marc declaration (Format B), which
+      // is redundant inside the collection but legal — MARC tooling accepts it.
+      const xml =
+        '<?xml version="1.0" encoding="UTF-8"?>\n' +
+        `<marc:collection xmlns:marc="${NS_MARC}" ` +
+        `xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ` +
+        `xsi:schemaLocation="${NS_MARC} http://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd">\n` +
+        combineParsedTexts.join('\n') +
+        '\n</marc:collection>\n';
+      const blob = new Blob([xml], { type: 'application/xml' });
+      const ts = getConversionTimestamp();
+      triggerDownload(blob, `combined_chunks_${ts}.xml`);
+    });
+
+    // Reset the chunk-resume picker on every page load (Firefox restores file
+    // pickers across reloads as part of session restore; that's fine for the
+    // EAD picker but the chunk picker should start fresh each time so users
+    // don't accidentally re-skip records from a previous test session).
+    document.getElementById('chunkResumePicker').value = '';
+
+    // ---- Chunk-resume picker ----
+    document.getElementById('chunkResumePicker').addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files);
+      uploadedChunkTexts = [];
+      uploadedSkipIds = new Set();
+      if (files.length === 0) {
+        setChunkResumeStatus('No chunks selected.', 'pending');
+        return;
+      }
+      setChunkResumeStatus(`Parsing ${files.length} chunk file${files.length === 1 ? '' : 's'}…`, 'pending');
+      try {
+        let totalRecords = 0;
+        for (const f of files) {
+          const parsed = await parseChunkFile(f);
+          uploadedChunkTexts.push(parsed.rawText);
+          parsed.ids.forEach(id => uploadedSkipIds.add(id));
+          totalRecords += parsed.recordCount;
+        }
+        setChunkResumeStatus(
+          `Loaded ${files.length} chunk file${files.length === 1 ? '' : 's'} containing ` +
+          `${totalRecords} record${totalRecords === 1 ? '' : 's'} — matching records in the ` +
+          `EAD will be skipped during conversion (matched by ASpace ID and/or 245 $a title).`,
+          'pass'
+        );
+      } catch (err) {
+        uploadedChunkTexts = [];
+        uploadedSkipIds = new Set();
+        setChunkResumeStatus('ERROR: ' + err.message, 'fail');
+      }
+    });
+
     // ---- Convert ----
     document.getElementById('convertBtn').addEventListener('click', async () => {
       const eadFile = document.getElementById('eadPicker').files[0];
@@ -359,6 +547,17 @@ await micropip.install('pycallnumber')
         ? document.getElementById('recRange').value.trim()
         : '';
       const chunkSize = parseInt(document.getElementById('chunkSize').value, 10) || 0;
+
+      // Pre-flight validation so we don't spin up Pyodide just to fail.
+      if (parseType === '1' && !target) {
+        document.getElementById('progressSection').classList.remove('hidden');
+        document.getElementById('progressMessages').innerHTML = '';
+        setProgressStatus(
+          'Please enter an ASpace ID in section 2, or switch to "Hierarchy level".',
+          'fail'
+        );
+        return;
+      }
 
       // Reset chunk state for this run and set a shared timestamp for all chunk filenames.
       chunksStored = [];
@@ -379,6 +578,8 @@ await micropip.install('pycallnumber')
         pyodide.globals.set('_target', target);
         pyodide.globals.set('_rec_range', recRange);
         pyodide.globals.set('_chunk_size', chunkSize);
+        pyodide.globals.set('_uploaded_chunk_texts', uploadedChunkTexts);
+        pyodide.globals.set('_uploaded_skip_ids', Array.from(uploadedSkipIds));
 
         // Expose JS progress hook to Python
         pyodide.globals.set('_js_progress', (msg, kind) => {
@@ -396,6 +597,8 @@ await micropip.install('pycallnumber')
 result_tuple = await convert_async(
     bytes(_ead_bytes), _parse_type, _target, _rec_range,
     chunk_size=_chunk_size,
+    uploaded_chunk_texts=list(_uploaded_chunk_texts),
+    uploaded_skip_ids=set(_uploaded_skip_ids),
     progress=_js_progress,
     chunk_handler=_chunk_handler
 )
@@ -454,16 +657,26 @@ import io
 import sys
 
 async def convert_async(ead_bytes, parse_type, target, rec_range_str,
-                        chunk_size=0, progress=None, chunk_handler=None):
+                        chunk_size=0, uploaded_chunk_texts=None, uploaded_skip_ids=None,
+                        progress=None, chunk_handler=None):
     """Browser driver around v1.84.py's ead2marc_rec(). Returns (marcxml_str, log_list, record_count).
 
     chunk_size > 0 turns on intermediate chunking: every chunk_size INPUT records,
     chunk_handler(chunk_xml, chunks_emitted, total_chunks, range_start, range_end)
-    is called with a self-contained <marc:collection> string for that chunk.
+    is called with a raw <marc:record> fragment string for that chunk.
+
+    uploaded_chunk_texts (list[str]) and uploaded_skip_ids (set[str]) are used for
+    resume: records from the uploaded chunks get included in the final collection,
+    and records whose ASpace ID is in the skip set are skipped during conversion.
     """
     from lxml import etree
     from copy import deepcopy
     import time, html as _html, re as _re, builtins, traceback
+
+    if uploaded_chunk_texts is None:
+        uploaded_chunk_texts = []
+    if uploaded_skip_ids is None:
+        uploaded_skip_ids = set()
 
     log = []
     def emit(msg, kind=''):
@@ -471,9 +684,8 @@ async def convert_async(ead_bytes, parse_type, target, rec_range_str,
         if progress is not None:
             progress(msg, kind)
 
-    # Helper that wraps a list of <marc:record> elements in a <marc:collection>
-    # and returns the serialized string. Used for chunked saves AND the final
-    # full collection, so the format is identical.
+    # Wraps a list of <marc:record> elements in a <marc:collection> and returns
+    # the serialized string. Used for the FINAL full collection.
     def build_collection_str(records):
         coll = etree.Element(
             "{http://www.loc.gov/MARC21/slim}collection",
@@ -486,8 +698,8 @@ async def convert_async(ead_bytes, parse_type, target, rec_range_str,
             "{http://www.w3.org/2001/XMLSchema-instance}schemaLocation",
             "http://www.loc.gov/MARC21/slim http://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd"
         )
-        # deepcopy because the same <marc:record> goes into BOTH a chunk collection
-        # and the final full collection; lxml would otherwise move (not copy) on append.
+        # deepcopy because the same <marc:record> goes into BOTH chunks and the
+        # final full collection; lxml would otherwise move (not copy) on append.
         for r in records:
             coll.append(deepcopy(r))
         s = etree.tostring(coll, pretty_print=True, xml_declaration=True, encoding="UTF-8").decode("UTF-8")
@@ -497,6 +709,26 @@ async def convert_async(ead_bytes, parse_type, target, rec_range_str,
             s
         )
         return s
+
+    # Serializes a list of <marc:record> elements as raw fragments — no
+    # <marc:collection> wrapper, no XML declaration. Each record carries its
+    # own xmlns:marc declaration (added automatically by lxml.tostring on a
+    # standalone prefixed element). The result is a chunk file that can be
+    # concatenated with 'cat' and wrapped in a <marc:collection> to rebuild a
+    # full collection — much easier than parsing nested collections.
+    def build_chunk_fragment(records):
+        parts = []
+        for r in records:
+            rc = deepcopy(r)
+            s = etree.tostring(rc, pretty_print=True, encoding="UTF-8").decode("UTF-8")
+            parts.append(s)
+        fragment = "".join(parts)
+        fragment = _re.sub(
+            r'<(marc:datafield) ind1="(.)" ind2="(.)" tag="(\d+)">',
+            r'<\1 tag="\4" ind1="\2" ind2="\3">',
+            fragment
+        )
+        return fragment
 
     # Capture script stdout (e.g., 'Connection to id.loc.gov timed out' warnings)
     stdout_buf = io.StringIO()
@@ -559,9 +791,27 @@ async def convert_async(ead_bytes, parse_type, target, rec_range_str,
         # Set the root global the script's functions read
         builtins.root = root
 
+        # Parse any uploaded chunks so their records can be included in the final
+        # collection (resume support). Done before the loop so the skip-set is
+        # ready and we can report counts.
+        uploaded_records = []
+        if uploaded_chunk_texts:
+            for ct in uploaded_chunk_texts:
+                wrapped = f'<temp xmlns:marc="http://www.loc.gov/MARC21/slim">{ct}</temp>'
+                try:
+                    troot = etree.fromstring(wrapped.encode('utf-8'))
+                except etree.XMLSyntaxError as e:
+                    emit(f"WARNING: Could not parse one uploaded chunk: {e}", 'warn')
+                    continue
+                for r in troot.xpath(".//*[local-name()='record']"):
+                    uploaded_records.append(deepcopy(r))
+            emit(f"Resume: {len(uploaded_records)} records loaded from uploaded chunks "
+                 f"(will skip {len(uploaded_skip_ids)} matching ASpace IDs during conversion).")
+
         all_rec_xml_list = []
         chunk_records = []          # records accumulated for the current chunk
         chunks_emitted = 0          # how many chunks have been built so far
+        skipped_count = 0           # records skipped because their ID was in the uploaded set
         total_chunks = (len(result) + chunk_size - 1) // chunk_size if chunk_size > 0 else 0
         total_start_time = time.time()
 
@@ -664,6 +914,22 @@ async def convert_async(ead_bytes, parse_type, target, rec_range_str,
             ):
                 setattr(builtins, _n, locals()[_n])
 
+            # Skip if this record is already covered by an uploaded chunk.
+            # Try two identifiers — ASpace @id (used when chunks have 856 with vaid)
+            # and the unittitle text (fallback for EADs without a vaid/856).
+            # The JS side prefixes its keys with "id:" or "title:" to avoid collisions.
+            _rec_id = c0_raw.attrib.get('id', '')
+            _title_el = c0_raw.xpath(".//*[local-name()='unittitle']")
+            _rec_title = _title_el[0].xpath("string()").strip() if _title_el else ''
+            _id_match = bool(_rec_id) and f"id:{_rec_id}" in uploaded_skip_ids
+            _title_match = bool(_rec_title) and f"title:{_rec_title}" in uploaded_skip_ids
+            if _id_match or _title_match:
+                skipped_count += 1
+                _why = _rec_id if _id_match else f'title: "{_rec_title}"'
+                emit(f"Record {rec_index}/{len(result)} ({_why}) — already in uploaded chunks, skipping.")
+                await asyncio.sleep(0)
+                continue
+
             emit(f"Record {rec_index}/{len(result)} — processing…", 'status')
 
             # Run the conversion with per-record error catching so one bad record
@@ -701,7 +967,7 @@ async def convert_async(ead_bytes, parse_type, target, rec_range_str,
             if chunk_size > 0 and rec_index % chunk_size == 0:
                 chunks_emitted += 1
                 if chunk_records:
-                    chunk_xml = build_collection_str(chunk_records)
+                    chunk_xml = build_chunk_fragment(chunk_records)
                     _rng_end = rec_index
                     _rng_start = rec_index - chunk_size + 1
                     if chunk_handler is not None:
@@ -720,7 +986,7 @@ async def convert_async(ead_bytes, parse_type, target, rec_range_str,
         # multiple of chunk_size, or when the last chunk's window had failures).
         if chunk_size > 0 and chunk_records:
             chunks_emitted += 1
-            chunk_xml = build_collection_str(chunk_records)
+            chunk_xml = build_chunk_fragment(chunk_records)
             _rng_end = len(result)
             _rng_start = len(result) - len(chunk_records) + 1
             if chunk_handler is not None:
@@ -742,13 +1008,20 @@ async def convert_async(ead_bytes, parse_type, target, rec_range_str,
                     kind = 'warn' if 'WARNING' in line else ''
                     emit(line, kind)
 
-        if not all_rec_xml_list:
+        if skipped_count > 0:
+            emit(f"{skipped_count} record(s) skipped because they were already in uploaded chunks.")
+
+        # Combine uploaded chunk records + newly-converted records for the final collection.
+        final_records = uploaded_records + all_rec_xml_list
+        if not final_records:
             return None, log + ["ERROR: No records produced output."], 0
 
-        emit("Compiling all records into the full MARC collection…", 'status')
-        collection_str = build_collection_str(all_rec_xml_list)
+        emit(f"Compiling {len(final_records)} records into the full MARC collection "
+             f"({len(uploaded_records)} from uploaded chunks + {len(all_rec_xml_list)} newly converted)…",
+             'status')
+        collection_str = build_collection_str(final_records)
 
-        return collection_str, log, len(all_rec_xml_list)
+        return collection_str, log, len(final_records)
     finally:
         sys.stdout = old_stdout
 `;

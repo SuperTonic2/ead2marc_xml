@@ -47,6 +47,45 @@ def lc_authority_url(authfile_no):
 # (This portion of code was generated utilizing Claude Opus 4.7)
 VIAF_ENABLED = False
 
+# ISBD terminal-period helper: returns text with a trailing period appended
+# unless it already ends with terminal punctuation. Used by 245 (title) and
+# 5xx note fields. NOT applied to 264 dates per IUL convention.
+# (This portion of code was generated utilizing Claude Opus 4.7)
+def isbd_terminal_period(text):
+    """Returns text with a period appended unless it already ends with .!?"""
+    text = text.rstrip()
+    if not text:
+        return text
+    if text[-1] in ".!?":
+        return text
+    return text + "."
+
+# ISBD authority-comma helper: applies trailing-comma punctuation to a serialized
+# authority heading string (with </datafield> already stripped). LCNAF authority
+# records carry heading text without ISBD trailing punctuation, but our 1xx/6xx/7xx
+# output context needs the commas between subfields. Handles two cases:
+#   - $a immediately followed by $d → add comma at end of $a content
+#   - A relator $e will be appended → add comma at end of the LAST subfield content
+# Skips additions if the relevant subfield content already ends with .!?,
+# whitespace, so it's safe to apply unconditionally.
+# (This portion of code was generated utilizing Claude Opus 4.7)
+def isbd_authority_comma(authority_str, has_relator_following):
+    """Returns authority_str with ISBD commas inserted as appropriate."""
+    # $a → $d: ensure $a content ends with comma
+    authority_str = re.sub(
+        r'([^,.\s])(</subfield><subfield code="d">)',
+        r'\1,\2',
+        authority_str
+    )
+    # If $e will be appended, ensure the last subfield content ends with comma
+    if has_relator_following:
+        authority_str = re.sub(
+            r'([^,.\s])(</subfield>)\Z',
+            r'\1,\2',
+            authority_str
+        )
+    return authority_str
+
 # Fetches authority MARCXML from loc.gov and strips the marcxml: namespace prefix
 # that id.loc.gov uses (e.g. <marcxml:datafield>). The script's downstream cleanup
 # regex was written for the lccn.loc.gov format which used unprefixed elements
@@ -266,7 +305,7 @@ def ead2marc_026(unitid_raw):
     unitid_str = unitid_raw.xpath("string()").strip()
     unitid_str = " ".join(unitid_str.split())
     e_026 = f"""<subfield code="e">{unitid_str}</subfield>"""
-    #NOTE: Only unparsed fingerprint identifiers (subfield E) are currently supported
+    # NOTE: Only unparsed fingerprint identifiers (subfield E) are currently supported
 
     # PRINT 026 FIELD
     field_026_open = """<datafield tag="026" ind1=" " ind2=" ">"""
@@ -423,36 +462,6 @@ def ead2marc_035(unitid_raw):
     # print(field_035_str)
     return field_035_xml
 
-def ead2marc_035_va(root, raw):
-    level = raw.attrib['level']
-    num_fetch = root.xpath(".//*[local-name()='num']")
-    recordid_fetch = root.xpath(".//*[local-name()='recordid']")
-    num_fetch.extend(recordid_fetch) # (Troubleshot with Claude Opus 4.6)
-    field_035_va_xml_list = []
-    if level == "collection" and num_fetch:
-        # INDICATORS
-        # Indicator 1 is constant (blank)
-        # Indiactor 2 is constant (9)
-
-        # SUBFIELDS
-        # Subfield A
-        for num_raw in num_fetch:
-            num_clean = num_raw.xpath("string()").strip()
-            num_clean = html.escape(num_clean)
-            a_035_va = f"""<subfield code="a">(EADID){num_clean}</subfield>"""
-
-            # PRINT 099 FIELD
-            field_035_va_open = """<datafield tag="099" ind1=" " ind2="9">"""
-            field_035_va_str_nb = field_035_va_open + a_035_va + "</datafield>"
-            field_035_va_xml = etree.fromstring(field_035_va_str_nb)
-            field_035_va_xml_list.append(field_035_va_xml)
-            # field_035_va_str = etree.tostring(field_035_va_xml, pretty_print=True, encoding="unicode")
-            # print(field_035_va_str)
-        
-        return field_035_va_xml_list
-
-
-
 def ead2marc_082(unitid_raw):
     '''Parses Dewey call number and creates 082 with classification and cutter'''
 
@@ -575,15 +584,26 @@ def ead2marc_02x_03x_05x_08x(raw):
                     field_028_xml = ead2marc_028(unitid)
                     field_02x_03x_05x_08x_xml_list.append(field_028_xml)
                 elif level == "collection":
-                    if unitid_str.startswith("VA"):
-                        field_035_xml = ead2marc_035_va(unitid)
-                    else:
-                        field_035_xml = ead2marc_035(unitid)
+                    field_035_xml = ead2marc_035(unitid)
                     field_02x_03x_05x_08x_xml_list.append(field_035_xml)
                 else:
                     field_024_xml = ead2marc_024(unitid)
                     field_02x_03x_05x_08x_xml_list.append(field_024_xml)
-    
+
+    # For collection-level records, also emit a 035 with the EAD ID from <recordid>.
+    # The EADID lives at the EAD document root (in <control><recordid>), not in any
+    # <unitid>, so it needs its own lookup outside the unitid loop above.
+    # (This portion of code was generated utilizing Claude Opus 4.7)
+    if level == "collection":
+        recordid_fetch = root.xpath(".//*[local-name()='recordid']")
+        if recordid_fetch:
+            eadid_clean = html.escape(recordid_fetch[0].xpath("string()").strip())
+            if eadid_clean:
+                field_035_eadid_xml = etree.fromstring(
+                    f'<datafield tag="035" ind1=" " ind2=" "><subfield code="a">(EADID){eadid_clean}</subfield></datafield>'
+                )
+                field_02x_03x_05x_08x_xml_list.append(field_035_eadid_xml)
+
     if field_02x_03x_05x_08x_xml_list:
         return field_02x_03x_05x_08x_xml_list
 
@@ -624,7 +644,6 @@ def ead2marc_040():
 def ead2marc_041(raw):
     '''Creates 041 (language code) from languageset elements'''
     # ISO 639-2/T to MARC (ISO 639-2/B) mapping
-    # Only needed if source uses terminology codes instead of bibliographic codes
     marc_language_codes = {
         "aar": "Afar",
         "abk": "Abkhaz",
@@ -1249,36 +1268,6 @@ def ead2marc_049():
     # print(field_049_str)
     return field_049_xml_list
 
-### TODO: chcek if ead2marc_035va is working correctly and ask L if 035 or 099 is better for VAE.
-# def ead2marc_099(root, raw):
-#     level = raw.attrib['level']
-#     num_fetch = root.xpath(".//*[local-name()='num']")
-#     recordid_fetch = root.xpath(".//*[local-name()='recordid']")
-#     num_fetch.extend(recordid_fetch) # (Troubleshot with Claude Opus 4.6)
-#     field_099_xml_list = []
-#     if level == "collection" and num_fetch:
-#         # INDICATORS
-#         # Indicator 1 is constant (blank)
-#         # Indiactor 2 is constant (9)
-
-#         # SUBFIELDS
-#         # Subfield A
-#         for num_raw in num_fetch:
-#             num_clean = num_raw.xpath("string()").strip()
-#             num_clean = html.escape(num_clean)
-#             a_099 = f"""<subfield code="a">{num_clean}</subfield>"""
-
-#             # PRINT 099 FIELD
-#             field_099_open = """<datafield tag="099" ind1=" " ind2="9">"""
-#             field_099_str_nb = field_099_open + a_099 + "</datafield>"
-#             field_099_xml = etree.fromstring(field_099_str_nb)
-#             field_099_xml_list.append(field_099_xml)
-#             # field_099_str = etree.tostring(field_099_xml, pretty_print=True, encoding="unicode")
-#             # print(field_099_str)
-        
-#         return field_099_xml_list
-
-
 def ead2marc_100(name):
     a_alpha = []
     d_num = []
@@ -1490,6 +1479,8 @@ def ead2marc_100(name):
     # PRINT 100 FIELD
     # (This portion of code was troubleshot utilizing Claude Opus 4.6)
     if authority in ("lcnaf", "viaf") and authority_100_str is not None:
+        # (This portion of code was generated utilizing Claude Opus 4.7)
+        authority_100_str = isbd_authority_comma(authority_100_str, bool(e_100))
         field_100_str_nb = authority_100_str + e_100 + "</datafield>"
         field_100_xml = etree.fromstring(field_100_str_nb)
         field_100_str = etree.tostring(field_100_xml, pretty_print=True, encoding="unicode")
@@ -1668,6 +1659,8 @@ def ead2marc_110(name):
     # PRINT 110 FIELD
     # (This portion of code was troubleshot utilizing Claude Opus 4.6)
     if authority in ("lcnaf", "viaf") and authority_110_str is not None:
+        # (This portion of code was generated utilizing Claude Opus 4.7)
+        authority_110_str = isbd_authority_comma(authority_110_str, bool(e_110))
         field_110_str_nb = authority_110_str + e_110 + "</datafield>"
         field_110_xml = etree.fromstring(field_110_str_nb)
         field_110_str = etree.tostring(field_110_xml, pretty_print=True, encoding="unicode")
@@ -1746,7 +1739,12 @@ def ead2marc_245(raw):
     # Adds [brackets] around title if collection level
     if level == "collection":
         title_clean = "[" + title_clean + "]"
-    a_245 = f"""<subfield code="a">{title_clean}</subfield>"""
+    # Apply ISBD terminal period for the 245 subfield only — return title_clean
+    # below WITHOUT the period so downstream callers (ead2marc_246) still get
+    # the title for string-pattern matching like .endswith("collection]").
+    # (This portion of code was generated utilizing Claude Opus 4.7)
+    title_for_245 = isbd_terminal_period(title_clean)
+    a_245 = f"""<subfield code="a">{title_for_245}</subfield>"""
 
     # PRINT 245 FIELD
     field_245_str_nb = """<datafield tag="245" ind1="1" ind2="0">""" + a_245 + "</datafield>"
@@ -2384,7 +2382,7 @@ def ead2marc_500(raw):
             # (This portion of code was generated utilizing Claude Opus 4.6)
             gnote_clean = " ".join(gnote_clean.split())
             gnote_clean = html.escape(gnote_clean)
-            a_500 = f"""<subfield code="a">{a_pref}{gnote_clean}</subfield>"""
+            a_500 = f"""<subfield code="a">{a_pref}{isbd_terminal_period(gnote_clean)}</subfield>"""
 
             # PRINT 500 FIELD
             field_500_str_nb = """<datafield tag="500" ind1=" " ind2=" ">""" + a_500 + "</datafield>"
@@ -2422,7 +2420,7 @@ def ead2marc_506(raw):
     else:
         ranote_clean = "This item is part of a collection that is open for research. Retrieval requires advance notice. Please contact the Cook Music Library to access this item."
 
-    a_506 = f"""<subfield code="a">{ranote_clean}</subfield>"""
+    a_506 = f"""<subfield code="a">{isbd_terminal_period(ranote_clean)}</subfield>"""
 
     # PRINT 506 FIELD
     field_506_str_nb = """<datafield tag="506" ind1=" " ind2=" ">""" + a_506 + "</datafield>"
@@ -2470,7 +2468,7 @@ def ead2marc_520(raw):
             snote_clean = " ".join(snote_clean.split())
             snote_clean = html.escape(snote_clean)
 
-            a_520 = f"""<subfield code="a">{snote_clean}</subfield>"""
+            a_520 = f"""<subfield code="a">{isbd_terminal_period(snote_clean)}</subfield>"""
 
             # PRINT 520 FIELD
             field_520_str_nb = field_520_open + a_520 + "</datafield>"
@@ -2506,7 +2504,7 @@ def ead2marc_524(raw):
             # (This portion of code was generated utilizing Claude Opus 4.6)
             prefercite_clean = " ".join(prefercite_clean.split())
             prefercite_clean = html.escape(prefercite_clean)
-            a_524 = f"""<subfield code="a">{prefercite_clean}</subfield>"""
+            a_524 = f"""<subfield code="a">{isbd_terminal_period(prefercite_clean)}</subfield>"""
 
             # PRINT 524 FIELD
             field_524_str_nb = """<datafield tag="524" ind1=" " ind2=" ">""" + a_524 + "</datafield>"
@@ -2551,7 +2549,7 @@ def ead2marc_535(raw):
             # (This portion of code was generated utilizing Claude Opus 4.6)
             ldnote_clean = " ".join(ldnote_clean.split())
             ldnote_clean = html.escape(ldnote_clean)
-            a_535 = f"""<subfield code="a">{ldnote_clean}</subfield>"""
+            a_535 = f"""<subfield code="a">{isbd_terminal_period(ldnote_clean)}</subfield>"""
 
             # PRINT 535 FIELD
             field_535_str_nb = field_535_open + a_535 + "</datafield>"
@@ -2588,7 +2586,7 @@ def ead2marc_540(raw):
             # (This portion of code was generated utilizing Claude Opus 4.6)
             tgurnote_clean = " ".join(tgurnote_clean.split())
             tgurnote_clean = html.escape(tgurnote_clean)
-            a_540 = f"""<subfield code="a">{tgurnote_clean}</subfield>"""
+            a_540 = f"""<subfield code="a">{isbd_terminal_period(tgurnote_clean)}</subfield>"""
 
             # PRINT 540 FIELD
             field_540_str_nb = """<datafield tag="540" ind1=" " ind2=" ">""" + a_540 + "</datafield>"
@@ -2633,7 +2631,7 @@ def ead2marc_541(raw):
             # (This portion of code was generated utilizing Claude Opus 4.6)
             acqnote_clean = " ".join(acqnote_clean.split())
             acqnote_clean = html.escape(acqnote_clean)
-            a_541 = f"""<subfield code="a">{acqnote_clean}</subfield>"""
+            a_541 = f"""<subfield code="a">{isbd_terminal_period(acqnote_clean)}</subfield>"""
 
             # PRINT 541 FIELD
             field_541_str_nb = field_541_open + a_541 + "</datafield>"
@@ -2670,7 +2668,7 @@ def ead2marc_544(raw):
             # (This portion of code was generated utilizing Claude Opus 4.6)
             loamnote_clean = " ".join(loamnote_clean.split())
             loamnote_clean = html.escape(loamnote_clean)
-            n_544 = f"""<subfield code="n">{loamnote_clean}</subfield>"""
+            n_544 = f"""<subfield code="n">{isbd_terminal_period(loamnote_clean)}</subfield>"""
 
             # PRINT 544 FIELD
             field_544_str_nb = """<datafield tag="544" ind1=" " ind2=" ">""" + n_544 + "</datafield>"
@@ -2707,7 +2705,7 @@ def ead2marc_545(raw):
             # (This portion of code was generated utilizing Claude Opus 4.6)
             bhnote_clean = " ".join(bhnote_clean.split())
             bhnote_clean = html.escape(bhnote_clean)
-            a_545 = f"""<subfield code="a">{bhnote_clean}</subfield>"""
+            a_545 = f"""<subfield code="a">{isbd_terminal_period(bhnote_clean)}</subfield>"""
 
             # PRINT 545 FIELD
             field_545_str_nb = """<datafield tag="545" ind1=" " ind2=" ">""" + a_545 + "</datafield>"
@@ -2749,7 +2747,7 @@ def ead2marc_546(raw):
                 # (This portion of code was generated utilizing Claude Opus 4.6)
                 langnote_clean = " ".join(langnote_clean.split())
                 langnote_clean = html.escape(langnote_clean)
-                a_546 = f"""<subfield code="a">{langnote_clean}</subfield>"""
+                a_546 = f"""<subfield code="a">{isbd_terminal_period(langnote_clean)}</subfield>"""
             else:
                 # If descriptive language note does not exist, $a is [Language 1], [Language 2], ...
                 language_clean_list = []
@@ -2761,7 +2759,7 @@ def ead2marc_546(raw):
                     language_clean = html.escape(language_clean)
                     language_clean_list.append(language_clean)
                     languages = (", ").join(language_clean_list)
-                    a_546 = f"""<subfield code="a">{languages}</subfield>"""
+                    a_546 = f"""<subfield code="a">{isbd_terminal_period(languages)}</subfield>"""
 
             # PRINT 546 FIELD
             field_546_str_nb = """<datafield tag="546" ind1=" " ind2=" ">""" + a_546 + "</datafield>"
@@ -2843,7 +2841,7 @@ def ead2marc_561(raw):
             # (This portion of code was generated utilizing Claude Opus 4.6)
             chnote_clean = " ".join(chnote_clean.split())
             chnote_clean = html.escape(chnote_clean)
-            a_561 = f"""<subfield code="a">{chnote_clean}</subfield>"""
+            a_561 = f"""<subfield code="a">{isbd_terminal_period(chnote_clean)}</subfield>"""
 
             # PRINT 561 FIELD
             field_561_str_nb = field_561_open + a_561 + "</datafield>"
@@ -2888,7 +2886,7 @@ def ead2marc_583(raw):
             # (This portion of code was generated utilizing Claude Opus 4.6)
             aprnote_clean = " ".join(aprnote_clean.split())
             aprnote_clean = html.escape(aprnote_clean)
-            a_583 = f"""<subfield code="a">{aprnote_clean}</subfield>"""
+            a_583 = f"""<subfield code="a">{isbd_terminal_period(aprnote_clean)}</subfield>"""
 
             # PRINT 583 FIELD
             field_583_str_nb = field_583_open + a_583 + "</datafield>"
@@ -2925,7 +2923,7 @@ def ead2marc_584(raw):
             # (This portion of code was generated utilizing Claude Opus 4.6)
             afunote_clean = " ".join(afunote_clean.split())
             afunote_clean = html.escape(afunote_clean)
-            a_584 = f"""<subfield code="a">{afunote_clean}</subfield>"""
+            a_584 = f"""<subfield code="a">{isbd_terminal_period(afunote_clean)}</subfield>"""
 
             # PRINT 584 FIELD
             field_584_str_nb = """<datafield tag="584" ind1=" " ind2=" ">""" + a_584 + "</datafield>"
@@ -3187,6 +3185,8 @@ def ead2marc_600(name):
     # PRINT 600 FIELD
     # (This portion of code was troubleshot utilizing Claude Opus 4.6)
     if authority in ("lcnaf", "viaf") and authority_600_str is not None:
+        # (This portion of code was generated utilizing Claude Opus 4.7)
+        authority_600_str = isbd_authority_comma(authority_600_str, bool(e_600))
         field_600_str_nb = authority_600_str + e_600 + "</datafield>"
         field_600_xml = etree.fromstring(field_600_str_nb)
         field_600_str = etree.tostring(field_600_xml, pretty_print=True, encoding="unicode")
@@ -3393,6 +3393,8 @@ def ead2marc_610(name):
     # PRINT 610 FIELD
     # (This portion of code was troubleshot utilizing Claude Opus 4.6)
     if authority in ("lcnaf", "viaf") and authority_610_str is not None:
+        # (This portion of code was generated utilizing Claude Opus 4.7)
+        authority_610_str = isbd_authority_comma(authority_610_str, bool(e_610))
         field_610_str_nb = authority_610_str + e_610 + "</datafield>"
         field_610_xml = etree.fromstring(field_610_str_nb)
         field_610_str = etree.tostring(field_610_xml, pretty_print=True, encoding="unicode")
@@ -3473,7 +3475,16 @@ def ead2marc_630(title):
             authority_130_str_list_stripped = [str.strip() for str in authority_130_str_list]
             authority_130_str = "".join(authority_130_str_list_stripped)
             authority_130_str = re.sub(r'</datafield>', '', authority_130_str).strip()
-            authority_630_str = authority_130_str.replace('tag="130"', 'tag="630"')
+            # Swap tag 130->630 AND force ind2="0" (LCSH) — preserving ind1 (nonfiling
+            # chars) from the authority. The authority record's 130 indicators apply to
+            # the 1xx (heading) context, not the 6xx (subject) context, so ind2 must
+            # be set to match the source (LCSH per the source-lcsh gating above).
+            # (This portion of code was generated utilizing Claude Opus 4.7)
+            authority_630_str = re.sub(
+                r'tag="130"(\s+ind1="[^"]*")\s+ind2="[^"]*"',
+                r'tag="630"\1 ind2="0"',
+                authority_130_str
+            )
 
             # Classify and append subdivisions
             # (This portion of code was generated utilizing Claude Opus 4.6)
@@ -3623,7 +3634,15 @@ def ead2marc_650(sh):
             authority_150_str_list_stripped = [str.strip() for str in authority_150_str_list]
             authority_150_str = "".join(authority_150_str_list_stripped)
             authority_150_str = re.sub(r'</datafield>', '', authority_150_str).strip()
-            authority_650_str = authority_150_str.replace('tag="150"', 'tag="650"')
+            # Swap tag 150->650 AND force ind1=" " ind2="0" (LCSH). The authority
+            # record's 150 indicators don't carry the subject-thesaurus meaning that
+            # 650 ind2 requires; we know it's LCSH from the source-lcsh gating above.
+            # (This portion of code was generated utilizing Claude Opus 4.7)
+            authority_650_str = re.sub(
+                r'tag="150"\s+ind1="[^"]*"\s+ind2="[^"]*"',
+                'tag="650" ind1=" " ind2="0"',
+                authority_150_str
+            )
 
             # Classify and append subdivisions
             # (This portion of code was generated utilizing Claude Opus 4.6)
@@ -3773,7 +3792,15 @@ def ead2marc_651(geo):
             authority_151_str_list_stripped = [str.strip() for str in authority_151_str_list]
             authority_151_str = "".join(authority_151_str_list_stripped)
             authority_151_str = re.sub(r'</datafield>', '', authority_151_str).strip()
-            authority_651_str = authority_151_str.replace('tag="151"', 'tag="651"')
+            # Swap tag 151->651 AND force ind1=" " ind2="0" (LCSH). Same rationale
+            # as the 650 fix: the authority record's indicators don't carry the
+            # 6xx-thesaurus meaning that 651 ind2 requires.
+            # (This portion of code was generated utilizing Claude Opus 4.7)
+            authority_651_str = re.sub(
+                r'tag="151"\s+ind1="[^"]*"\s+ind2="[^"]*"',
+                'tag="651" ind1=" " ind2="0"',
+                authority_151_str
+            )
 
             # Classify and append subdivisions
             # (This portion of code was generated utilizing Claude Opus 4.6)
@@ -3934,7 +3961,19 @@ def ead2marc_655(gf):
             authority_155_str_list_stripped = [str.strip() for str in authority_155_str_list]
             authority_155_str = "".join(authority_155_str_list_stripped)
             authority_155_str = re.sub(r'</datafield>', '', authority_155_str).strip()
-            authority_655_str = authority_155_str.replace('tag="155"', 'tag="655"')
+            # Swap tag 155->655 AND set ind2 per source: lcgft -> "7" (with $2 lcgft
+            # appended), lcsh -> "0". The 655 source can be either since the gating
+            # at line 3872 accepts both.
+            # (This portion of code was generated utilizing Claude Opus 4.7)
+            gf_source = gf.get("source").lower()
+            ind2_655 = "7" if gf_source == "lcgft" else "0"
+            authority_655_str = re.sub(
+                r'tag="155"\s+ind1="[^"]*"\s+ind2="[^"]*"',
+                f'tag="655" ind1=" " ind2="{ind2_655}"',
+                authority_155_str
+            )
+            if gf_source == "lcgft":
+                authority_655_str += '<subfield code="2">lcgft</subfield>'
 
             # Classify and append subdivisions
             # (This portion of code was generated utilizing Claude Opus 4.6)
@@ -4418,6 +4457,8 @@ def ead2marc_700(name):
     # PRINT 700 FIELD
     # (This portion of code was troubleshot utilizing Claude Opus 4.6)
     if authority in ("lcnaf", "viaf") and authority_700_str is not None:
+        # (This portion of code was generated utilizing Claude Opus 4.7)
+        authority_700_str = isbd_authority_comma(authority_700_str, bool(e_700))
         field_700_str_nb = authority_700_str + e_700 + "</datafield>"
         field_700_xml = etree.fromstring(field_700_str_nb)
         field_700_str = etree.tostring(field_700_xml, pretty_print=True, encoding="unicode")
@@ -4595,6 +4636,8 @@ def ead2marc_710(name):
     # PRINT 710 FIELD
     # (This portion of code was troubleshot utilizing Claude Opus 4.6)
     if authority in ("lcnaf", "viaf") and authority_710_str is not None:
+        # (This portion of code was generated utilizing Claude Opus 4.7)
+        authority_710_str = isbd_authority_comma(authority_710_str, bool(e_710))
         field_710_str_nb = authority_710_str + e_710 + "</datafield>"
         field_710_xml = etree.fromstring(field_710_str_nb)
         field_710_str = etree.tostring(field_710_xml, pretty_print=True, encoding="unicode")

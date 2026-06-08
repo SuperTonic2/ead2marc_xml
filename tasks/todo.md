@@ -2,10 +2,8 @@
 
 ## Current To-Do's
 
-- [X] After MC122 batch completes, audit records with `uuuu` in 008 p7-14 against their EAD source — RESOLVED 2026-06-04: 2/20 records in batch 41-60 had `uuuu`, both with literal `<unitdate>undated</unitdate>` in EAD source. Option B (year-regex text-parsing) would extract nothing useful from "undated". v1.84's behavior (`p6=n`, `p7-14=uuuu`, 264 $c "undated" preserved) is correct per MARC standards. Stay with Option A. Re-open this to-do only if a future batch shows uuuu records with year-containing text like "ca. 1970".
 - [ ] Check with L if 541 needs to be broken down into more subfields (see bibformats)
-
-- [ ] Address TODOs in .py doc
+  
 - [ ] Check item-level test exports and debug any issues
 - [ ] Run full item-level test export and send to Laikin to review
 - [ ] Write more to-do’s
@@ -13,9 +11,12 @@
 - [ ] Check ISBD punctuation
 - [ ] Determine what doesn't work with ASpace version 4 (local test version) vs. version 3 (IU version)
   - [ ] External IDs not in version 4 (affects 02x, 05x, and 08x)
-- [ ] Create UI OR consider making into an ASpace plugin
 - [ ] Incorporate features into UI:
   - [ ] Create some way for user to toggle which name they want to be 100/110 instead of just setting it to first listed creator.
+  - [ ] Create ways to toggle custom:
+    - [ ] 035 local collection number syntax
+    - [ ] 040 $a and $c
+    - [ ] 049
 
 - [ ] Create documentation describing limitations
   - [ ] No support for 648 (Temporal terms don't show up in ASpace EAD exports)
@@ -157,8 +158,24 @@
   - [X] Consider removing subfield f in 300 and putting everything in subfield a (see bibformats)
   - [X] HTML escape 540? (and other 500 notes?)
   - [X] Check leader and 008
+  - [X] Address TODOs in .py doc
+  - [X] Create UI OR consider making into an ASpace plugin
 
 ## Major Claude Edits
+
+### 2026-06-04: v1.84.py — UUUU 008 Audit Resolved (No Code Change)
+
+**What was done:** Followed up on the 2026-06-03 Option A fix (restricting `ead2marc_008` xpath to `<unitdatestructured>` only) by auditing records in the MC122 records 41-60 batch (`collectiontest_20260604_1806.xml`) that came out with `uuuu` in 008 positions 7-14. The goal was to confirm Option A wasn't silently dropping recoverable date information.
+
+**Findings:** 2 records out of 20 (10%) had `uuuu` in 008. Both records had literal `<unitdate>undated</unitdate>` in the EAD source — no year information of any form. The 264 $c output preserved the "undated" string for human-readable display, but it can't (and shouldn't) feed structured 008 date positions.
+
+**Decision:** Stay with Option A. Option B (year-regex text-parsing of plain `<unitdate>` text) would extract nothing useful from "undated" and risks introducing fabricated dates from EAD text in other edge cases. v1.84's behavior (`p6=n`, `p7-14=uuuu`, 264 $c "undated" preserved) is correct per MARC standards.
+
+**Re-open this if:** A future batch shows `uuuu` records with year-containing plain `<unitdate>` text like `circa 1970`, `ca. 1970`, `1985?`, etc. — that would mean Option B has a real value-add.
+
+**No code changes.** Resolution is informational/policy.
+
+---
 
 ### 2026-06-04: v1.84.py — Broaden xmlns Cleanup Regex to Strip All Prefixed Namespaces
 

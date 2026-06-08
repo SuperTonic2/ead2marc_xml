@@ -5,9 +5,20 @@ A web-based tool for converting EAD (Encoded Archival Description) finding aids 
 
 ## What It Does
 
-- **Upload** EAD XML files (EAD2002 or EAD3)
+- **Upload** EAD3 XML files (for EAD 2002, see [the note below](#have-ead-2002-files))
 - **Convert** archival metadata to MARC21 format
 - **Download** resulting MARC records for import into library catalogs
+
+## Have EAD 2002 files?
+
+This tool reads **EAD3** only. EAD 2002 (deprecated by SAA in 2014) needs to be transformed to EAD3 first. Two ways to do that:
+
+- **From ArchivesSpace** — most ASpace versions (v2.6+ I believe, and definitely v3 and v4) include an **EAD3 export option** alongside the EAD 2002 one. If you have finding aids in ASpace, just export them as EAD3 directly — no transformation step needed.
+- **From raw EAD 2002 XML files** — use the official Society of American Archivists [EAD2002toEAD3 stylesheet](https://github.com/SAA-SDT/EAD2002toEAD3) to transform first, then feed the output to this tool. One-liner with `xsltproc` (or any XSLT 1.0/2.0 processor):
+
+  ```bash
+  xsltproc ead2002toead3.xsl input_ead2002.xml > output_ead3.xml
+  ```
 
 ## Tech Stack
 
