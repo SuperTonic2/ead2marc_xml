@@ -138,6 +138,35 @@
       </div>
     </div>
 
+    <div id="codes035Row" class="field" style="display:flex; gap:1.5rem; flex-wrap:wrap; align-items:flex-end;">
+      <div>
+        <span class="field-label" style="display:block;">035 local collection prefix:</span>
+        <input type="text" id="collPrefix035" value="MC" maxlength="20" style="width:140px;">
+      </div>
+      <div>
+        <span class="field-label" style="display:block;">035 MARC institution code:</span>
+        <input type="text" id="marcCode035" value="Inu-MuID" maxlength="30" style="width:160px;">
+      </div>
+    </div>
+
+    <div class="field" style="display:flex; gap:1.5rem; flex-wrap:wrap; align-items:flex-end;">
+      <div>
+        <span class="field-label" style="display:block;">040 cataloging source ($a, $c):</span>
+        <input type="text" id="catCode040" value="IUL" maxlength="20" style="width:140px;">
+      </div>
+      <div>
+        <span class="field-label" style="display:block;">049 local holdings code ($a):</span>
+        <input type="text" id="libCode049" value="IULA" maxlength="20" style="width:140px;">
+      </div>
+      <p class="chunk-help" style="flex-basis:100%; margin:0.25rem 0 0 0;">
+        Defaults are IUL conventions (035 prefix <code>MC</code>, MARC code <code>Inu-MuID</code>,
+        cataloging source <code>IUL</code>, holdings code <code>IULA</code>). Edit if your institution uses
+        different codes; your values are saved in this browser and used for future conversions.
+        The 035 row appears only when "collection" is selected as the hierarchy level, since 035 is
+        only emitted for collection-level records.
+      </p>
+    </div>
+
     <div class="field">
       <span class="field-label">Chunk size (intermediate saves for long runs; 0 = no chunking):</span>
       <input type="number" id="chunkSize" value="25" min="0" step="1" inputmode="numeric" pattern="[0-9]*" style="width:120px;">
@@ -198,7 +227,7 @@
       without redoing any conversion.
     </p>
     <div class="field">
-      <input type="file" id="combinePicker" accept=".xml" multiple>
+      <input type="file" id="combinePicker" accept=".xml" multiple autocomplete="off">
     </div>
     <div id="combineStatus" class="status pending hidden">No chunks selected.</div>
     <button id="combineBtn" disabled style="margin-top:0.75rem;">Combine and Download</button>
@@ -418,14 +447,30 @@ await micropip.install('pycallnumber')
     });
 
     // ---- UI toggles ----
+    // Show the 035 prefix/code inputs only when parse-by-level is selected AND
+    // the level is "collection" (since the script only emits 035 for collection
+    // records). When hidden, the values still get passed to Python but the
+    // converter ignores them at non-collection levels.
+    function update035RowVisibility() {
+      const isLevel = document.querySelector('input[name=parseType]:checked').value === '2';
+      const level = document.getElementById('targetLevel').value;
+      const show = isLevel && level === 'collection';
+      // Set 'flex' explicitly (not '') so we restore the inline display:flex
+      // from the HTML. Setting '' would clear the inline display, falling back
+      // to the default 'block' which would stack the two inputs vertically.
+      document.getElementById('codes035Row').style.display = show ? 'flex' : 'none';
+    }
     document.querySelectorAll('input[name=parseType]').forEach(r => {
       r.addEventListener('change', () => {
         const isLevel = document.querySelector('input[name=parseType]:checked').value === '2';
         document.getElementById('levelField').style.display = isLevel ? '' : 'none';
         document.getElementById('rangeField').style.display = isLevel ? '' : 'none';
         document.getElementById('idField').style.display = isLevel ? 'none' : '';
+        update035RowVisibility();
       });
     });
+    document.getElementById('targetLevel').addEventListener('change', update035RowVisibility);
+    update035RowVisibility();  // Initial state — default is level=item so 035 row starts hidden.
     document.getElementById('eadPicker').addEventListener('change', maybeEnableConvert);
 
     // Physically prevent non-digit input on the chunk size box. Catches typed
@@ -502,6 +547,25 @@ await micropip.install('pycallnumber')
     // EAD picker but the chunk picker should start fresh each time so users
     // don't accidentally re-skip records from a previous test session).
     document.getElementById('chunkResumePicker').value = '';
+    // Same reset for the standalone Combine utility's picker.
+    document.getElementById('combinePicker').value = '';
+
+    // Cataloging-code inputs (035 prefix, 035 MARC code, 040, 049) — restore
+    // from localStorage so user's values persist across browser sessions.
+    // Saved on every keystroke. Defaults fall back to IUL conventions.
+    [
+      ['collPrefix035', 'ead2marc_collPrefix035'],
+      ['marcCode035',   'ead2marc_marcCode035'],
+      ['catCode040',    'ead2marc_catCode040'],
+      ['libCode049',    'ead2marc_libCode049'],
+    ].forEach(([elemId, storageKey]) => {
+      const el = document.getElementById(elemId);
+      const saved = localStorage.getItem(storageKey);
+      if (saved !== null) el.value = saved;
+      el.addEventListener('input', (e) => {
+        localStorage.setItem(storageKey, e.target.value);
+      });
+    });
 
     // ---- Chunk-resume picker ----
     document.getElementById('chunkResumePicker').addEventListener('change', async (e) => {
@@ -580,6 +644,12 @@ await micropip.install('pycallnumber')
         pyodide.globals.set('_chunk_size', chunkSize);
         pyodide.globals.set('_uploaded_chunk_texts', uploadedChunkTexts);
         pyodide.globals.set('_uploaded_skip_ids', Array.from(uploadedSkipIds));
+        // User-customizable cataloging codes (035 prefix + MARC code, 040, 049).
+        // Fall back to defaults if the inputs were somehow cleared.
+        pyodide.globals.set('_coll_prefix_035', (document.getElementById('collPrefix035').value || 'MC').trim());
+        pyodide.globals.set('_marc_code_035', (document.getElementById('marcCode035').value || 'Inu-MuID').trim());
+        pyodide.globals.set('_cat_code_040', (document.getElementById('catCode040').value || 'IUL').trim());
+        pyodide.globals.set('_lib_code_049', (document.getElementById('libCode049').value || 'IULA').trim());
 
         // Expose JS progress hook to Python
         pyodide.globals.set('_js_progress', (msg, kind) => {
@@ -594,6 +664,13 @@ await micropip.install('pycallnumber')
         setProgressStatus('Converting (this may take a while if there are many records)…', 'info');
 
         const result = await pyodide.runPythonAsync(`
+# Push the user's customizable cataloging codes into the script's globals
+# so ead2marc_035 / ead2marc_040 / ead2marc_049 read them instead of the
+# bundled defaults.
+globals()['coll_prefix_035'] = _coll_prefix_035
+globals()['marc_code_035'] = _marc_code_035
+globals()['cat_code_040'] = _cat_code_040
+globals()['lib_code_049'] = _lib_code_049
 result_tuple = await convert_async(
     bytes(_ead_bytes), _parse_type, _target, _rec_range,
     chunk_size=_chunk_size,

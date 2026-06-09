@@ -47,6 +47,16 @@ def lc_authority_url(authfile_no):
 # (This portion of code was generated utilizing Claude Opus 4.7)
 VIAF_ENABLED = False
 
+# User-customizable cataloging codes. The browser UI can override these by
+# setting them as Pyodide globals before each conversion run (the existing
+# functions read these as module-level names). Standalone Python users can
+# also just change the defaults here.
+# (This portion of code was generated utilizing Claude Opus 4.7)
+coll_prefix_035 = "MC"        # 035 unitid prefix to recognize as a local collection number
+marc_code_035 = "Inu-MuID"    # 035 institution code wrapped in parens, e.g. (Inu-MuID)MC122
+cat_code_040 = "IUL"          # 040 $a (cataloging source) and $c (transcribing agency)
+lib_code_049 = "IULA"         # 049 $a (local holdings code)
+
 # ISBD terminal-period helper: returns text with a trailing period appended
 # unless it already ends with terminal punctuation. Used by 245 (title) and
 # 5xx note fields. NOT applied to 264 dates per IUL convention.
@@ -447,8 +457,11 @@ def ead2marc_035(unitid_raw):
 
     # SUBFIELDS
     # Subfield A
-    if unitid_str.startswith("MC"):
-        a_content = f"""(Inu-MuID){unitid_str}"""
+    # coll_prefix_035 and marc_code_035 are module-level globals (defined near
+    # top of file). The browser UI can override their defaults by setting them
+    # on the Pyodide globals before running a conversion.
+    if unitid_str.startswith(coll_prefix_035):
+        a_content = f"""({marc_code_035}){unitid_str}"""
     else:
         a_content = f"""{unitid_str}"""
     a_035 = f"""<subfield code="a">{a_content}</subfield>"""
@@ -620,7 +633,10 @@ def ead2marc_040():
     field_040_open = """<datafield tag="040" ind1=" " ind2=" ">"""
 
     # Subfield A
-    a_040 = """<subfield code="a">IUL</subfield>"""
+    # cat_code_040 is a module-level global (defined near top of file).
+    # The browser UI can override the default "IUL" by setting it on the
+    # Pyodide globals before running a conversion.
+    a_040 = f"""<subfield code="a">{cat_code_040}</subfield>"""
 
     # Subfield B
     b_040 = """<subfield code="b">eng</subfield>"""
@@ -629,7 +645,7 @@ def ead2marc_040():
     e_040 = """<subfield code="e">rda</subfield>"""
 
     # Subfield C
-    c_040 = """<subfield code="c">IUL</subfield>"""
+    c_040 = f"""<subfield code="c">{cat_code_040}</subfield>"""
     field_040_close = """</datafield>"""
 
     field_040_str_nb = field_040_open + a_040 + b_040 + e_040 + c_040 + field_040_close
@@ -1257,7 +1273,10 @@ def ead2marc_049():
     field_049_open = """<datafield tag="049" ind1=" " ind2=" ">"""
 
     # Subfield A
-    a_049 = """<subfield code="a">IULA</subfield>"""
+    # lib_code_049 is a module-level global (defined near top of file).
+    # The browser UI can override the default "IULA" by setting it on the
+    # Pyodide globals before running a conversion.
+    a_049 = f"""<subfield code="a">{lib_code_049}</subfield>"""
     field_049_close = """</datafield>"""
 
     field_049_str_nb = field_049_open + a_049 + field_049_close
@@ -4220,7 +4239,7 @@ def ead2marc_690(raw_root):
         sf2_690 = """<subfield code="2">local</subfield>"""
 
         # Subfield 5
-        sf5_690 = """<subfield code="5">InU-Mu</subfield>"""
+        sf5_690 = f"""<subfield code="5">{marc_code_035}</subfield>"""
 
         # PRINT 690 FIELD
         # (This portion of code was troubleshot using Claud Opus 4.5)

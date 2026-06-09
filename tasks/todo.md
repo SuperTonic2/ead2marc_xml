@@ -5,22 +5,25 @@
 - [ ] Check with L if 541 needs to be broken down into more subfields (see bibformats)
   
 - [ ] Check item-level test exports and debug any issues
-- [ ] Run full item-level test export and send to Laikin to review
+- [ ] Run full item-level test export and send to L to review
 - [ ] Write more to-do’s
-
-- [ ] Check ISBD punctuation
-- [ ] Determine what doesn't work with ASpace version 4 (local test version) vs. version 3 (IU version)
-  - [ ] External IDs not in version 4 (affects 02x, 05x, and 08x)
-- [ ] Incorporate features into UI:
-  - [ ] Create some way for user to toggle which name they want to be 100/110 instead of just setting it to first listed creator.
-  - [ ] Create ways to toggle custom:
-    - [ ] 035 local collection number syntax
-    - [ ] 040 $a and $c
-    - [ ] 049
 
 - [ ] Create documentation describing limitations
   - [ ] No support for 648 (Temporal terms don't show up in ASpace EAD exports)
   - [ ] No support for 610 or 65x subfields for non-authorized corpnames/titles/subjects/gfts (subdivisions aren't broken into separate tags in EAD export)
+  - [ ] No support for 006 or 007 (not in min-record requirements; would require source data not present in EAD)
+  - [ ] No support for 046 (264 covers this per L's direction) or 852
+  - [ ] Only EAD3 supported as input (EAD 2002 requires SAA-SDT XSLT pre-transformation; documented in README)
+  - [ ] Main entry (100/110) always defaults to the FIRST listed creator in the EAD `<origination>` elements; catalogers must manually swap 100↔700 (or 110↔710) in MARCEdit if a different creator should be the main entry
+  - [ ] Plain `<unitdate>` text-only elements (e.g., `<unitdate>undated</unitdate>` or "circa 1970") are ignored by 008 — only `<unitdatestructured>` with `<datesingle>`/`<daterange>` children feeds 008. Records with only plain `<unitdate>` get `p6=n`, `p7-14=uuuu` ("no dates given"). The text still appears in 264 $c.
+  - [ ] 008 date positions only reflect dates with `datechar="creation"` in the EAD; copyright/broadcast/publication/deaccession/etc. are filtered out (Path A). Falls back to all non-creation dates only if no creation date exists for the record.
+  - [ ] LCNAF authority records are used verbatim — missing $d (life dates), $b/$c (corporate subdivisions), etc. are NOT supplemented from EAD source data. If LCNAF doesn't include a subfield, the output won't either (per IUL "LCNAF as-is" policy).
+  - [ ] Family names (`<famname>`) do not trigger authority lookups; they are always constructed manually from EAD text content
+  - [ ] VIAF lookups are disabled in the browser version due to CORS incompatibility (VIAF doesn't send `Access-Control-Allow-Origin` headers). Standalone Python users can re-enable by setting `VIAF_ENABLED = True` near the top of the script.
+  - [ ] HTML markup in EAD note text (e.g., `<strong>`, `<em>`) is stripped during text extraction — emphasis is not preserved in MARC output. Plain text content survives.
+  - [ ] 300 (physical description) subfield ordering is non-standard (`a, c, a, f` instead of MARC-canonical `a, b, c, e, f`) per IUL convention; some strict MARC validators may flag this
+  - [ ] 035 (system control number) is emitted only for collection-level records, not for items
+  - [ ] If id.loc.gov is unreachable or times out (~10s default), the affected authority field falls back to manually-constructed content from the EAD; a NOTE comment is added to the record so catalogers can spot and review
 - [ ] Add ChatGPT and Claude chat logs into folder in repo
 
 ## Backlog
@@ -160,6 +163,15 @@
   - [X] Check leader and 008
   - [X] Address TODOs in .py doc
   - [X] Create UI OR consider making into an ASpace plugin
+- [X] Check ISBD punctuation
+- [X] Determine what doesn't work with ASpace version 4 (local test version) vs. version 3 (IU version)
+  - [X] External IDs not in version 4 (affects 02x, 05x, and 08x)
+- [X] Incorporate features into UI:
+  - [X] Create some way for user to toggle which name they want to be 100/110 instead of just setting it to first listed creator. (Did not do)
+  - [X] Create ways to toggle custom:
+    - [X] 035 local collection number syntax
+    - [X] cat_code_040
+    - [X] lib_code_049
 
 ## Major Claude Edits
 
