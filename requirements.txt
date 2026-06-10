@@ -1,3 +1,7 @@
-flask
-lxml
-pymarc
+# Dependencies for running the standalone Python script
+# (EAD2MARC_workzone/EAD2MARCv1.84.py) from the terminal.
+# The browser/Pyodide build does not use this file.
+
+lxml>=5.3
+requests>=2.32
+pycallnumber>=0.2
