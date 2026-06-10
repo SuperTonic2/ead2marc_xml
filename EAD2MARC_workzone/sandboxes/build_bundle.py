@@ -6,6 +6,7 @@ Reads:
 
 Writes:
   - EAD2MARC_workzone/sandboxes/ead2marc_stage2_bundled.html
+  - docs/index.html  (the GitHub Pages deployment copy)
 
 What it does:
   Takes the converter script's function definitions (everything before the
@@ -35,6 +36,8 @@ WORKZONE = HERE.parent                          # .../EAD2MARC_workzone
 SCRIPT_PATH = WORKZONE / "EAD2MARCv1.84.py"
 HTML_PICKER_PATH = HERE / "ead2marc_stage2.html"
 HTML_BUNDLED_PATH = HERE / "ead2marc_stage2_bundled.html"
+# (This portion of code was generated utilizing Claude Opus 4.7)
+PAGES_INDEX_PATH = WORKZONE.parent / "docs" / "index.html"
 
 # Marker that separates function definitions (above) from top-level execution
 # (below). Everything before this line is what we embed in the bundle.
@@ -179,11 +182,15 @@ def main():
     bundled_html = patch_html(picker_html, source_b64)
 
     HTML_BUNDLED_PATH.write_text(bundled_html, encoding="utf-8")
+    # (This portion of code was generated utilizing Claude Opus 4.7)
+    PAGES_INDEX_PATH.parent.mkdir(parents=True, exist_ok=True)
+    PAGES_INDEX_PATH.write_text(bundled_html, encoding="utf-8")
 
     print(f"Read  {SCRIPT_PATH.name}:         {len(defs):,} bytes (definitions only)")
     print(f"Read  {HTML_PICKER_PATH.name}:     {len(picker_html):,} chars")
     print(f"Wrote {HTML_BUNDLED_PATH.name}: {len(bundled_html):,} chars "
           f"(base64 source: {len(source_b64):,} chars)")
+    print(f"Wrote docs/index.html:                same content (GitHub Pages copy)")
 
 
 if __name__ == "__main__":
