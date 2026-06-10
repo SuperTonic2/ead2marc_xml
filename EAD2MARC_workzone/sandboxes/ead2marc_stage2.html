@@ -80,13 +80,13 @@
 </head>
 <body>
   <h1>EAD → MARCXML Converter</h1>
-  <p class="subtitle">Browser-based converter using Pyodide + your <code>EAD2MARCv1.84.py</code></p>
+  <p class="subtitle">Browser-based converter using Pyodide + your <code>EAD2MARCv2.0.py</code></p>
 
   <section id="setupSection">
     <h2>1. Setup</h2>
     <div id="setupStatus" class="status pending">Loading Pyodide + dependencies (~30-60s on first load)…</div>
     <div class="field">
-      <span class="field-label">Select your <code>EAD2MARCv1.84.py</code> file (one folder up from this HTML):</span>
+      <span class="field-label">Select your <code>EAD2MARCv2.0.py</code> file (one folder up from this HTML):</span>
       <input type="file" id="scriptPicker" accept=".py" disabled>
     </div>
     <div id="scriptStatus" class="status pending hidden">Waiting for script…</div>
@@ -405,7 +405,7 @@ import micropip
 await micropip.install('pycallnumber')
 `);
 
-        setSetupStatus(`Pyodide ${pyodide.version} ready. Now select your EAD2MARCv1.84.py file.`, 'pass');
+        setSetupStatus(`Pyodide ${pyodide.version} ready. Now select your EAD2MARCv2.0.py file.`, 'pass');
         document.getElementById('scriptPicker').disabled = false;
         maybeEnableConvert();
       } catch (e) {
@@ -413,7 +413,7 @@ await micropip.install('pycallnumber')
       }
     }
 
-    // ---- Load v1.84.py source on file pick ----
+    // ---- Load v2.0.py source on file pick ----
     document.getElementById('scriptPicker').addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
@@ -727,7 +727,7 @@ result_tuple
       triggerDownload(lastResultBlob, lastResultFilename);
     });
 
-    // ---- Python converter (driver around v1.84.py functions) ----
+    // ---- Python converter (driver around v2.0.py functions) ----
     const CONVERTER_PY = String.raw`
 import asyncio
 import io
@@ -736,7 +736,7 @@ import sys
 async def convert_async(ead_bytes, parse_type, target, rec_range_str,
                         chunk_size=0, uploaded_chunk_texts=None, uploaded_skip_ids=None,
                         progress=None, chunk_handler=None):
-    """Browser driver around v1.84.py's ead2marc_rec(). Returns (marcxml_str, log_list, record_count).
+    """Browser driver around v2.0.py's ead2marc_rec(). Returns (marcxml_str, log_list, record_count).
 
     chunk_size > 0 turns on intermediate chunking: every chunk_size INPUT records,
     chunk_handler(chunk_xml, chunks_emitted, total_chunks, range_start, range_end)
@@ -824,7 +824,7 @@ async def convert_async(ead_bytes, parse_type, target, rec_range_str,
 
         emit("EAD parsed; locating target records…", 'status')
 
-        # Locate target records (mirrors v1.84.py lines 5354-5392)
+        # Locate target records (mirrors v2.0.py lines 5354-5392)
         if parse_type == "1":
             if not target:
                 return None, ["ERROR: ASpace ID is empty."], 0
@@ -901,7 +901,7 @@ async def convert_async(ead_bytes, parse_type, target, rec_range_str,
             builtins.rec_index = rec_index
             builtins.rec_start_time = rec_start_time
 
-            # vaid_clean (mirrors v1.84.py lines 5402-5412)
+            # vaid_clean (mirrors v2.0.py lines 5402-5412)
             vaid_clean = ""
             vaid_fetch = root.xpath(".//*[local-name()='recordid']")
             if vaid_fetch:
@@ -913,7 +913,7 @@ async def convert_async(ead_bytes, parse_type, target, rec_range_str,
                     vaid_clean = vaid_clean.replace(vaid_head, "")
                 vaid_clean = _html.escape(vaid_clean)
 
-            # Names lists (mirrors v1.84.py lines 5414-5455)
+            # Names lists (mirrors v2.0.py lines 5414-5455)
             names_list = c0_raw.xpath(".//*[local-name()='origination']")
             all_persnames_list = []
             all_corpnames_list = []
@@ -953,7 +953,7 @@ async def convert_async(ead_bytes, parse_type, target, rec_range_str,
                     elif label == "source":
                         source_famnames_list.append(orig)
 
-            # Subject lists (mirrors v1.84.py lines 5457-5491)
+            # Subject lists (mirrors v2.0.py lines 5457-5491)
             subjs_list = []
             subj_persnames_list = []
             subj_corpnames_list = []

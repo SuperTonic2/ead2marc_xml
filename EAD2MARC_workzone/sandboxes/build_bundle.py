@@ -1,7 +1,7 @@
 """Build EAD2MARC_XML browser bundle.
 
 Reads:
-  - EAD2MARC_workzone/EAD2MARCv1.84.py        (the converter script)
+  - EAD2MARC_workzone/EAD2MARCv2.0.py        (the converter script)
   - EAD2MARC_workzone/sandboxes/ead2marc_stage2.html  (the picker-version UI)
 
 Writes:
@@ -15,7 +15,7 @@ What it does:
   is fully self-contained — no separate script picker needed — and is what
   you would distribute to catalogers or deploy to GitHub Pages.
 
-Re-run this script any time EAD2MARCv1.84.py changes, so the bundle stays
+Re-run this script any time EAD2MARCv2.0.py changes, so the bundle stays
 in sync with the latest converter logic.
 
 Usage:
@@ -33,7 +33,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent          # .../EAD2MARC_workzone/sandboxes
 WORKZONE = HERE.parent                          # .../EAD2MARC_workzone
 
-SCRIPT_PATH = WORKZONE / "EAD2MARCv1.84.py"
+SCRIPT_PATH = WORKZONE / "EAD2MARCv2.0.py"
 HTML_PICKER_PATH = HERE / "ead2marc_stage2.html"
 HTML_BUNDLED_PATH = HERE / "ead2marc_stage2_bundled.html"
 # (This portion of code was generated utilizing Claude Opus 4.7)
@@ -45,7 +45,7 @@ BOUNDARY_MARKER = b"tree = etree.parse("
 
 
 def read_script_definitions() -> bytes:
-    """Returns the function-definitions portion of v1.84.py as bytes."""
+    """Returns the function-definitions portion of v2.0.py as bytes."""
     if not SCRIPT_PATH.exists():
         sys.exit(f"ERROR: converter script not found at {SCRIPT_PATH}")
     raw = SCRIPT_PATH.read_bytes()
@@ -65,7 +65,7 @@ def patch_html(html: str, source_b64: str) -> str:
     # 1. Remove the script picker UI block.
     picker_ui_old = (
         '<div class="field">\n'
-        '      <span class="field-label">Select your <code>EAD2MARCv1.84.py</code> '
+        '      <span class="field-label">Select your <code>EAD2MARCv2.0.py</code> '
         'file (one folder up from this HTML):</span>\n'
         '      <input type="file" id="scriptPicker" accept=".py" disabled>\n'
         '    </div>\n'
@@ -131,7 +131,7 @@ def patch_html(html: str, source_b64: str) -> str:
         "async function loadBundledScript() {\n"
         "      const status = document.getElementById('scriptStatus');\n"
         "      status.classList.remove('hidden');\n"
-        "      setScriptStatus('Decoding bundled EAD2MARCv1.84.py source…', 'pending');\n"
+        "      setScriptStatus('Decoding bundled EAD2MARCv2.0.py source…', 'pending');\n"
         "      try {\n"
         "        const defsOnly = decodeBundledSource();\n"
         "        pyodide.globals.set('script_src', defsOnly);\n"
@@ -155,7 +155,7 @@ def patch_html(html: str, source_b64: str) -> str:
     #    for the user to use the file picker.
     bootstrap_end_old = (
         "setSetupStatus(`Pyodide ${pyodide.version} ready. "
-        "Now select your EAD2MARCv1.84.py file.`, 'pass');\n"
+        "Now select your EAD2MARCv2.0.py file.`, 'pass');\n"
         "        document.getElementById('scriptPicker').disabled = false;\n"
         "        maybeEnableConvert();"
     )

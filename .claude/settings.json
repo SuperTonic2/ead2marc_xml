@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(grep -l \"v1\\\\.8\" \"C:/Users/yello/.claude/projects/c--Users-yello-OneDrive-Documents-EAD2MARC/memory/\"*.md 2>&1)",
+      "Read(//c/Users/yello/.claude/projects/c--Users-yello-OneDrive-Documents-EAD2MARC/memory/**)"
     ]
   }
 }
