@@ -6,7 +6,7 @@ A browser-based tool that converts ArchivesSpace **EAD3** finding aids into **MA
 
 ## Quick start
 
-1. Open **[supertonic2.github.io/EAD2MARC_XML](https://supertonic2.github.io/EAD2MARC_XML/)**. Should work in any browser, but tested most extensively with Firefox.
+1. Open **[supertonic2.github.io/ead2marc_xml](https://supertonic2.github.io/ead2marc_xml/)**. Should work in any browser, but tested most extensively with Firefox.
 2. Pick the EAD3 XML file you want to convert (e.g., a finding aid exported from ArchivesSpace)
 3. Choose how you want to parse it:
    - **By record ID** — convert one specific record
