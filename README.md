@@ -75,7 +75,7 @@ source venv/bin/activate        # macOS / Linux
 pip install -r requirements.txt
 
 # Edit the input path at the bottom of the script, then run:
-python EAD2MARC_workzone/EAD2MARCv2.0.py
+python workzone/EAD2MARCv2.0.py
 ```
 
 ## Rebuilding the browser bundle
@@ -83,12 +83,12 @@ python EAD2MARC_workzone/EAD2MARCv2.0.py
 The browser version (`docs/index.html`) is built from the Python script (`EAD2MARCv2.0.py`) and an HTML shell (`ead2marc_stage2.html`). To rebuild after editing the Python script:
 
 ```bash
-python EAD2MARC_workzone/sandboxes/build_bundle.py
+python browser_ui/build_bundle.py
 ```
 
 This writes the bundled HTML to two locations:
 
-- `EAD2MARC_workzone/sandboxes/ead2marc_stage2_bundled.html` — for local testing (open from disk)
+- `browser_ui/ead2marc_stage2_bundled.html` — for local testing (open from disk)
 - `docs/index.html` — the file GitHub Pages serves
 
 Commit and push both files. `docs/index.html` is what updates the live site; keeping `ead2marc_stage2_bundled.html` in sync prevents stale-bundle confusion on future rebuilds.

@@ -41,7 +41,7 @@ AI Disclosure:
 
 Version:
     v2.0 — first release version. Earlier iterations (v1.0 through v1.84)
-    are preserved in EAD2MARC_workzone/archived EAD2MARC/.
+    are preserved in workzone/archived_EAD2MARC/.
 """
 
 
@@ -54,6 +54,7 @@ import unicodedata
 from copy import deepcopy
 from lxml import etree
 from datetime import datetime
+from pathlib import Path
 
 # !!! Replace C:\path\to\your\ead3.xml with your filepath !!!
 INPUT_FILE = r"C:\path\to\your\ead3.xml"
@@ -5331,7 +5332,12 @@ def ead2marc_rec(raw):
 # Gets xml file and sets tree and root
 tree = etree.parse(INPUT_FILE)
 root = tree.getroot()
-2
+
+# Output is written to a "test_exports" folder next to this script.
+# Will be auto-created if it doesn't exist.
+# (This portion of code was generated utilizing Claude Opus 4.7)
+OUTPUT_DIR = Path(__file__).resolve().parent / "test_exports"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 # Checks that document is EAD3
 if 'http://ead3.archivists.org/schema/' in root.tag:
 
@@ -5512,7 +5518,7 @@ if 'http://ead3.archivists.org/schema/' in root.tag:
         # (This portion of code was generated utilizing Claude Opus 4.6)
         collection_str = re.sub(r'<(marc:datafield) ind1="(.)" ind2="(.)" tag="(\d+)">', r'<\1 tag="\4" ind1="\2" ind2="\3">', collection_str)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-        with open(f"C:/Users/yello/OneDrive/Documents/EAD2MARC/EAD2MARC_workzone/test_exports/collectiontest_{timestamp}.xml", "w", encoding="UTF-8") as outfile:
+        with open(OUTPUT_DIR / f"collectiontest_{timestamp}.xml", "w", encoding="UTF-8") as outfile:
             outfile.write(collection_str)
         print(collection_str)
 
