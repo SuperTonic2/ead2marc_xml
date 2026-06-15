@@ -2970,7 +2970,6 @@ def ead2marc_600(name):
         # (This portion of code was generated utilizing Claude Opus 4.6)
         try:
             authority = "lcnaf"
-            authfile_no = name.get("identifier")
             authority_url = lc_authority_url(authfile_no)
             authority_xml = loc_fetch_authority_xml(authority_url)
             authority_root = etree.fromstring(authority_xml)
@@ -4249,7 +4248,6 @@ def ead2marc_700(name):
         # (This portion of code was generated utilizing Claude Opus 4.6)
         try:
             authority = "lcnaf"
-            authfile_no = name.get("identifier")
             authority_url = lc_authority_url(authfile_no)
             authority_xml = loc_fetch_authority_xml(authority_url)
             authority_root = etree.fromstring(authority_xml)

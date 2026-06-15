@@ -79,6 +79,21 @@
       background: #0066cc;
     }
     .chunk-help { font-size: 0.85rem; color: #555; margin: 0.5rem 0 0 0; }
+    /* (This portion of code was generated utilizing Claude Opus 4.7) */
+    .failed-card {
+      background: #fde8e8; border: 1px solid #c33;
+      padding: 0.75rem 1rem; margin: 0.5rem 0;
+      border-radius: 4px;
+    }
+    .failed-card .failed-header { font-weight: 500; }
+    .failed-card .failed-error {
+      font-family: 'Consolas', 'Monaco', monospace; font-size: 0.85rem;
+      color: #c33; margin: 0.4rem 0;
+    }
+    .failed-card pre {
+      background: #fff; padding: 0.6rem;
+      font-size: 0.8rem; margin-top: 0.4rem;
+    }
   </style>
 </head>
 <body>
@@ -200,8 +215,7 @@
   <section id="chunkSection" class="hidden">
     <h2>Chunks (as they complete)</h2>
     <p class="chunk-help">
-      Each chunk is a raw <code>&lt;marc:record&gt;</code> fragment file (<code>.recs.xml</code>) —
-      not a complete MARCXML collection on its own. Click Download on any chunk you want to save
+      Each chunk is a raw <code>&lt;marc:record&gt;</code> fragment file (<code>.recs.xml</code>), not a complete MARCXML collection on its own. Click Download on any chunk you want to save
       for crash recovery. To turn chunks back into a usable collection, either rerun this page with
       the chunks selected in the &ldquo;Resume from saved chunks&rdquo; picker (section 2), or
       use the &ldquo;Combine chunks&rdquo; utility at the bottom of this page.
@@ -223,6 +237,14 @@
       <summary>Preview MARCXML output (first 2000 chars)</summary>
       <pre id="resultPreview"></pre>
     </details>
+  </section>
+
+  <!-- (This portion of code was generated utilizing Claude Opus 4.7) -->
+  <section id="failedSection" class="hidden">
+    <h2>Failed records</h2>
+    <div id="failedSummary"></div>
+    <button id="copyFailuresBtn" style="margin-top:0.5rem;">Copy all failures (for sharing)</button>
+    <div id="failedList" style="margin-top:0.75rem;"></div>
   </section>
 
   <section id="combineSection">
@@ -251,6 +273,7 @@
     let conversionTimestamp = '';  // Set at the start of each conversion so all chunks share it
     let uploadedChunkTexts = [];   // Raw text content of each uploaded chunk file
     let uploadedSkipIds = new Set(); // ASpace IDs already covered by uploaded chunks
+    let currentFailures = [];   // Failed records from the most recent conversion (for copy button)
     let combineParsedTexts = [];   // For the standalone Combine utility (independent of conversion)
     let combineRecordCount = 0;
     const NS_MARC = 'http://www.loc.gov/MARC21/slim';
@@ -656,6 +679,7 @@ await micropip.install('pycallnumber')
 
       document.getElementById('progressSection').classList.remove('hidden');
       document.getElementById('resultSection').classList.add('hidden');
+      document.getElementById('failedSection').classList.add('hidden');
       document.getElementById('progressMessages').innerHTML = '';
       document.getElementById('convertBtn').disabled = true;
       setProgressStatus('Reading EAD file…', 'info');
@@ -707,7 +731,7 @@ result_tuple = await convert_async(
 result_tuple
 `);
 
-        const [marcxml, log, count] = result.toJs({ create_proxies: false });
+        const [marcxml, log, count, failedRecords] = result.toJs({ create_proxies: false, dict_converter: Object.fromEntries });
 
         if (!marcxml) {
           setProgressStatus('Conversion produced no output.', 'fail');
@@ -739,6 +763,7 @@ result_tuple
           `Suggested filename: <code>${lastResultFilename}</code>`;
         document.getElementById('conversionLog').textContent = log.join('\n');
         document.getElementById('resultPreview').textContent = marcxml.slice(0, 2000) + (marcxml.length > 2000 ? '\n…(truncated)' : '');
+        renderFailedRecords(failedRecords);
         document.getElementById('convertBtn').disabled = false;
       } catch (err) {
         setProgressStatus('Conversion failed: ' + err.message, 'fail');
@@ -750,6 +775,71 @@ result_tuple
     document.getElementById('downloadBtn').addEventListener('click', () => {
       if (!lastResultBlob) return;
       triggerDownload(lastResultBlob, lastResultFilename);
+    });
+
+    // ---- Failed-record summary rendering + copy button ----
+    // (This portion of code was generated utilizing Claude Opus 4.7)
+    function renderFailedRecords(failures) {
+      const section = document.getElementById('failedSection');
+      const summary = document.getElementById('failedSummary');
+      const list = document.getElementById('failedList');
+      list.innerHTML = '';
+      currentFailures = failures || [];
+      if (currentFailures.length === 0) {
+        section.classList.add('hidden');
+        return;
+      }
+      section.classList.remove('hidden');
+      summary.innerHTML =
+        `<strong>${currentFailures.length}</strong> record` +
+        `${currentFailures.length === 1 ? '' : 's'} failed during conversion. ` +
+        `Full tracebacks are also in the conversion log above.`;
+      currentFailures.forEach(f => {
+        const card = document.createElement('div');
+        card.className = 'failed-card';
+
+        const titleStr = f.title || '(no title)';
+        const idStr = f.rec_id ? ` — ${f.rec_id}` : '';
+        const header = document.createElement('div');
+        header.className = 'failed-header';
+        header.textContent = `Record ${f.rec_index} — "${titleStr}"${idStr}`;
+
+        const errLine = document.createElement('div');
+        errLine.className = 'failed-error';
+        errLine.textContent = `${f.error_type}: ${f.error_msg}`;
+
+        const details = document.createElement('details');
+        const summaryEl = document.createElement('summary');
+        summaryEl.textContent = 'Traceback';
+        const pre = document.createElement('pre');
+        pre.textContent = f.traceback;
+        details.appendChild(summaryEl);
+        details.appendChild(pre);
+
+        card.appendChild(header);
+        card.appendChild(errLine);
+        card.appendChild(details);
+        list.appendChild(card);
+      });
+    }
+
+    document.getElementById('copyFailuresBtn').addEventListener('click', () => {
+      if (!currentFailures || currentFailures.length === 0) return;
+      const text = currentFailures.map(f => {
+        const titleStr = f.title || '(no title)';
+        const idStr = f.rec_id || '(no ID)';
+        return `Record ${f.rec_index} — "${titleStr}" — ${idStr}\n` +
+               `Error: ${f.error_type}: ${f.error_msg}\n` +
+               `Traceback:\n${f.traceback}\n${'-'.repeat(60)}`;
+      }).join('\n\n');
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById('copyFailuresBtn');
+        const orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = orig; }, 1500);
+      }).catch(err => {
+        alert('Could not copy to clipboard: ' + err.message);
+      });
     });
 
     // ---- Python converter (driver around v2.0.py functions) ----
@@ -911,6 +1001,8 @@ async def convert_async(ead_bytes, parse_type, target, rec_range_str,
                  f"(will skip {len(uploaded_skip_ids)} matching ASpace IDs during conversion).")
 
         all_rec_xml_list = []
+        # (This portion of code was generated utilizing Claude Opus 4.7)
+        failed_records = []
         chunk_records = []          # records accumulated for the current chunk
         chunks_emitted = 0          # how many chunks have been built so far
         skipped_count = 0           # records skipped because their ID was in the uploaded set
@@ -1040,8 +1132,18 @@ async def convert_async(ead_bytes, parse_type, target, rec_range_str,
             try:
                 rec_xml = ead2marc_rec(c0_raw)
             except Exception as _e:
+                # (This portion of code was generated utilizing Claude Opus 4.7)
+                _tb = traceback.format_exc()
+                failed_records.append({
+                    'rec_index': rec_index,
+                    'rec_id': _rec_id or '',
+                    'title': _rec_title or '',
+                    'error_type': type(_e).__name__,
+                    'error_msg': str(_e),
+                    'traceback': _tb,
+                })
                 emit(f"Record {rec_index}/{len(result)} FAILED — skipping: {type(_e).__name__}: {_e}", 'error')
-                for _tb_line in traceback.format_exc().split('\n'):
+                for _tb_line in _tb.split('\n'):
                     if _tb_line.strip():
                         emit("    " + _tb_line, 'error')
 
@@ -1116,14 +1218,14 @@ async def convert_async(ead_bytes, parse_type, target, rec_range_str,
         # Combine uploaded chunk records + newly-converted records for the final collection.
         final_records = uploaded_records + all_rec_xml_list
         if not final_records:
-            return None, log + ["ERROR: No records produced output."], 0
+            return None, log + ["ERROR: No records produced output."], 0, failed_records
 
         emit(f"Compiling {len(final_records)} records into the full MARC collection "
              f"({len(uploaded_records)} from uploaded chunks + {len(all_rec_xml_list)} newly converted)…",
              'status')
         collection_str = build_collection_str(final_records)
 
-        return collection_str, log, len(final_records)
+        return collection_str, log, len(final_records), failed_records
     finally:
         sys.stdout = old_stdout
 `;

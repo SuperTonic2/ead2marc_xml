@@ -1,5 +1,25 @@
 # Major Claude Edits
 
+## 2026-06-15: v2.0.py — Fix Redundant `authfile_no` Reassignment in `ead2marc_600` and `ead2marc_700`
+
+**What was done:** A full-collection test run on `MC122_ead3_ASv3.5.1.xml` (802 records) crashed on records 17 and 20 with `AttributeError: 'NoneType' object has no attribute 'strip'`. Traceback ended at line 88 (`lc_authority_url`'s `authfile_no.strip()`), called from line 4253 of `ead2marc_700`.
+
+**Root cause:** Inside the `if name.get("source") in {"lcnaf", "naf"} and authfile_no:` block, the code reassigned `authfile_no = name.get("identifier")` before passing it to `lc_authority_url()`. For records that took the `suggest2` API fallback path (lcnaf source but no `identifier` attribute on the persname/subject element), this reassignment overwrote the suggest2-found token with `None`, causing `lc_authority_url(None)` to crash on `.strip()`.
+
+The redundant line was a leftover from before the 2026-02-12 suggest2 lookup was added — at that time, the only source for `authfile_no` was the direct `identifier` attribute, and re-fetching it inside the `try` block was harmless. When suggest2 was added as a fallback path, the redundant reassignment should have been removed but was missed.
+
+**Fix:** Deleted line 4252 (`authfile_no = name.get("identifier")`) in `ead2marc_700`. The earlier branching at lines 4212-4244 already populates `authfile_no` correctly from one of three sources (direct identifier, suggest2 token, or VIAF id), and the guard at line 4247 ensures it's truthy before entering the fetch block.
+
+Found the same bug in `ead2marc_600` (line 2973) — same pattern, same root cause. Deleted that line too.
+
+**Functions affected:** `ead2marc_600`, `ead2marc_700`.
+
+**Verified:** Bundle rebuilt cleanly. Records 17 and 20 should now successfully fetch LCNAF authority records via the suggest2 path instead of crashing.
+
+**Not affected (verified):** `ead2marc_100`, `ead2marc_110`, `ead2marc_610`, `ead2marc_710` — `grep` across the file confirmed the redundant reassignment pattern only existed in the two fixed functions.
+
+---
+
 ## 2026-06-04: v1.84.py — UUUU 008 Audit Resolved (No Code Change)
 
 **What was done:** Followed up on the 2026-06-03 Option A fix (restricting `ead2marc_008` xpath to `<unitdatestructured>` only) by auditing records in the MC122 records 41-60 batch (`collectiontest_20260604_1806.xml`) that came out with `uuuu` in 008 positions 7-14. The goal was to confirm Option A wasn't silently dropping recoverable date information.
