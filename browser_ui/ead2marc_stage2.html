@@ -136,7 +136,7 @@
         <input type="text" id="targetId" placeholder="e.g., aspace_82a259bf0d95...">
       </div>
       <div class="field" id="rangeField">
-        <span class="field-label">Record range (optional — blank for all):</span>
+        <span class="field-label">Record range (optional, leave field blank to convert all):</span>
         <input type="text" id="recRange" placeholder="e.g., 1-20 or :5 or 10:">
       </div>
     </div>
@@ -228,9 +228,9 @@
   <section id="combineSection">
     <h2>Combine chunks into a collection (utility)</h2>
     <p class="chunk-help">
-      Standalone tool — no conversion needed. Select any number of chunk files
+      Standalone tool (no conversion needed). Select any number of chunk files
       (<code>.recs.xml</code>) and merge them into a single
-      <code>&lt;marc:collection&gt;</code> XML file you can load into MARCEdit or Alma.
+      <code>&lt;marc:collection&gt;</code> XML file.
       Useful when a previous run died and you want to assemble what was saved
       without redoing any conversion.
     </p>
