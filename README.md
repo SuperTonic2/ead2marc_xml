@@ -59,7 +59,7 @@ This tool reads **EAD3** only. EAD 2002 (deprecated by SAA in 2014) needs to be 
 
 ## Running the Python script locally
 
-If you'd rather skip the browser and run the converter on the command line (useful for batch jobs or for extending the script), you can run the underlying Python directly.
+If you would prefer to run the underlying Python locally using the command line:
 
 ```bash
 # Clone the repo
@@ -100,6 +100,7 @@ Commit and push both files. `docs/index.html` is what updates the live site; kee
 - [id.loc.gov Authorities](https://id.loc.gov/)
 - [ArchivesSpace](https://archivesspace.org/)
 - [Pyodide](https://pyodide.org/)
+- [marc_ao](https://github.com/hudmol/as_marcao)
 
 ## License
 
