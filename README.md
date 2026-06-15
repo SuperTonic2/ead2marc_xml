@@ -2,7 +2,7 @@
 
 Originally built by Sarah Helen Carter for the Indiana University Cook Music Library.
 
-A browser-based tool that converts ArchivesSpace **EAD3** finding aids into **MARCXML** records for ingest into a library catalog.
+A browser-based tool that converts ArchivesSpace **EAD3** finding aids into **MARCXML** records for use in MARCEdit or ingest.
 
 ## Quick start
 
@@ -35,12 +35,8 @@ AI tools were used in the creation of this tool for development support purposes
 
 This tool reads **EAD3** only. EAD 2002 (deprecated by SAA in 2014) needs to be transformed to EAD3 first. Two ways to do that:
 
-- **From ArchivesSpace** — most ASpace versions (v2.6+ I believe, and definitely v3 and v4) include an **EAD3 export option** alongside the EAD 2002 one. If you have finding aids in ASpace, just export them as EAD3 directly — no transformation step needed.
-- **From raw EAD 2002 XML files** — use the official Society of American Archivists [EAD2002toEAD3 stylesheet](https://github.com/SAA-SDT/EAD2002toEAD3) to transform first, then feed the output to this tool. One-liner with `xsltproc` (or any XSLT 1.0/2.0 processor):
-
-  ```bash
-  xsltproc ead2002toead3.xsl input_ead2002.xml > output_ead3.xml
-  ```
+- **From ArchivesSpace** — ASpace v2.2.0 and onward include an EAD3 export option. If you have finding aids in ASpace, just export them as EAD3 directly by checking Export &#8594; Download EAD &#8594; &#9745; EAD3 schema. For additional information, see the [ASpace Documentation on Exporting EAD](https://docs.atlas-sys.com/archivesspace/importing-and-exporting/export-ead).
+- **From raw EAD 2002 XML files** — use the official Society of American Archivists [EAD2002toEAD3 stylesheet](https://github.com/SAA-SDT/EAD2002toEAD3) to transform your file.
 
 ## Limitations
 

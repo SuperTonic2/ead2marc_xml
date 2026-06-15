@@ -63,6 +63,17 @@ def read_script_definitions() -> bytes:
 def patch_html(html: str, source_b64: str) -> str:
     """Applies the four bundling substitutions to the picker-version HTML."""
 
+    # 0. Inject a "do not edit" banner just after the doctype.
+    # (This portion of code was generated utilizing Claude Opus 4.7)
+    generated_banner = (
+        "<!--\n"
+        "  GENERATED FILE — DO NOT EDIT.\n"
+        "  Source: browser_ui/ead2marc_stage2.html + workzone/EAD2MARCv2.0.py\n"
+        "  Rebuild: python browser_ui/build_bundle.py\n"
+        "-->"
+    )
+    html = html.replace("<!DOCTYPE html>", f"<!DOCTYPE html>\n{generated_banner}")
+
     # 1. Remove the script picker UI block.
     picker_ui_old = (
         '<div class="field">\n'

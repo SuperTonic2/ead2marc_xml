@@ -1,8 +1,14 @@
 <!DOCTYPE html>
+<!--
+  GENERATED FILE — DO NOT EDIT.
+  Source: browser_ui/ead2marc_stage2.html + workzone/EAD2MARCv2.0.py
+  Rebuild: python browser_ui/build_bundle.py
+-->
+<!-- (This code was generated utilizing Claude Opus 4.5, 4.6, and 4.7) -->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>EAD2MARC_XML — Browser Converter (Stage 2)</title>
+  <title>EAD2MARC_XML Converter</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -12,6 +18,8 @@
     h1 { font-size: 1.8rem; margin-bottom: 0.25rem; }
     h2 { font-size: 1.2rem; margin-top: 0; }
     .subtitle { color: #666; margin-top: 0; }
+    .subtitle a { color: inherit; text-decoration: none; }
+    .subtitle a:hover { color: #000; text-decoration: underline; }
     section {
       background: white; padding: 1.25rem 1.5rem; margin: 1rem 0;
       border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
@@ -80,7 +88,7 @@
 </head>
 <body>
   <h1>EAD → MARCXML Converter</h1>
-  <p class="subtitle">Browser-based converter using Pyodide + your <code>EAD2MARCv2.0.py</code></p>
+  <p class="subtitle">Browser-based converter using Pyodide + <a href="https://github.com/SuperTonic2/ead2marc_xml/blob/main/workzone/EAD2MARCv2.0.py"><code>EAD2MARCv2.0.py</code></a></p>
 
   <section id="setupSection">
     <h2>1. Setup</h2>
@@ -166,10 +174,15 @@
     <div class="field">
       <span class="field-label">Chunk size (intermediate saves for long runs; 0 = no chunking):</span>
       <input type="number" id="chunkSize" value="25" min="0" step="1" inputmode="numeric" pattern="[0-9]*" style="width:120px;">
+      <!-- (This portion of code was generated utilizing Claude Opus 4.7) -->
+      <div id="chunkDownloadModeRow" class="field" style="margin-top:0.6rem; margin-bottom:0;">
+        <span class="field-label">When a chunk completes:</span>
+        <label><input type="radio" name="chunkDownloadMode" value="auto" checked> Auto-download</label>
+        <label><input type="radio" name="chunkDownloadMode" value="manual"> Manual (click each chunk's Download button)</label>
+      </div>
       <p class="chunk-help">
-        With chunking on, each chunk appears below with its own Download button as it completes.
-        Downloads are optional — only useful if the run crashes before the full collection finishes.
-        The full collection is still produced at the end. Set to 0 for one download at the end.
+        Chunks are useful for crash recovery if a long run dies midway. The full collection
+        is still produced at the end. Set chunk size to 0 to disable chunking entirely.
       </p>
     </div>
 
@@ -353,6 +366,13 @@
       card.appendChild(btn);
       document.getElementById('chunkList').appendChild(card);
       document.getElementById('chunkSection').classList.remove('hidden');
+
+      // Auto-download the chunk if the user picked auto-mode (default).
+      // (This portion of code was generated utilizing Claude Opus 4.7)
+      const mode = document.querySelector('input[name="chunkDownloadMode"]:checked');
+      if (mode && mode.value === 'auto') {
+        triggerDownload(blob, filename);
+      }
     }
 
     function setSetupStatus(msg, kind) {
@@ -471,6 +491,7 @@ await micropip.install('pycallnumber')
     document.getElementById('chunkSize').addEventListener('input', (e) => {
       const cleaned = e.target.value.replace(/[^0-9]/g, '');
       if (cleaned !== e.target.value) e.target.value = cleaned;
+      updateChunkDownloadModeVisibility();
     });
     // Safety net for the cases the input filter can't catch (e.g. Firefox sometimes
     // shows letters transiently in type="number" fields without firing 'input'):
@@ -478,7 +499,16 @@ await micropip.install('pycallnumber')
     document.getElementById('chunkSize').addEventListener('blur', (e) => {
       const val = e.target.value.trim();
       if (val === '' || !/^[0-9]+$/.test(val)) e.target.value = '25';
+      updateChunkDownloadModeVisibility();
     });
+
+    // Hide the auto/manual toggle when chunking is disabled (chunkSize = 0).
+    // (This portion of code was generated utilizing Claude Opus 4.7)
+    function updateChunkDownloadModeVisibility() {
+      const size = parseInt(document.getElementById('chunkSize').value, 10) || 0;
+      document.getElementById('chunkDownloadModeRow').style.display = size > 0 ? '' : 'none';
+    }
+    updateChunkDownloadModeVisibility();
 
     // ---- Standalone Combine utility ----
     function setCombineStatus(msg, kind) {
