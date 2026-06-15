@@ -1,17 +1,17 @@
-# EAD2MARC
+# EAD2MARC_XML
+
+Originally built by Sarah Helen Carter for the Indiana University Cook Music Library.
 
 A browser-based tool that converts ArchivesSpace **EAD3** finding aids into **MARCXML** records for ingest into a library catalog.
 
-Runs entirely in your browser — no install, no server, no data leaves your machine. Originally built for the Indiana University Libraries' (IUL) cataloging workflow.
-
 ## Quick start
 
-1. Open **[supertonic2.github.io/EAD2MARC_XML](https://supertonic2.github.io/EAD2MARC_XML/)** in any modern browser
+1. Open **[supertonic2.github.io/EAD2MARC_XML](https://supertonic2.github.io/EAD2MARC_XML/)**. Should work in any browser, but tested most extensively with Firefox.
 2. Pick the EAD3 XML file you want to convert (e.g., a finding aid exported from ArchivesSpace)
 3. Choose how you want to parse it:
    - **By record ID** — convert one specific record
    - **By hierarchy level** — convert all records at a given level (collection, file, item, etc.)
-4. (Optional) Customize the IUL-specific catalog codes used in 035/040/049 if your library uses different ones
+4. (Optional) Customize codes used in 035/040/049
 5. Click **Convert** and download the resulting MARCXML
 
 The first run will take a moment while your browser downloads Pyodide (the in-browser Python interpreter). Subsequent runs are faster.
@@ -19,11 +19,17 @@ The first run will take a moment while your browser downloads Pyodide (the in-br
 ## What it does
 
 - **Reads** EAD3 XML (one record, or every record at a chosen hierarchy level)
-- **Maps** archival metadata to MARC21 fields (008, 040, 1XX, 245, 264, 300, 5XX, 6XX, 7XX, 856, and more)
+- **Maps** archival metadata to MARC21 fields (008, 040, 1XX, 245, 264, 300, 5XX, 6XX, 7XX, 856, etc.)
 - **Looks up** authority records from id.loc.gov to populate name/subject/genre fields (LCNAF, LCSH, LCGFT)
 - **Writes** valid MARCXML, ready to import into a library catalog management system
 
 `id.loc.gov` is the only external service the tool calls. No metadata or finding-aid content is sent anywhere else.
+
+## Does the conversion process involve AI or Large Language Models (LLMs)?
+
+**No.** The actual conversion process does not utilize any AI agents or LLMs. It is run through a Python script. When you use the tool, no AI is invoked. Your EAD file and the resulting MARCXML stay between your browser and id.loc.gov. No finding-aid content is sent to OpenAI, Anthropic, or any other AI service.
+
+AI tools were used in the creation of this tool for development support purposes. Primary uses were debugging Python scripts, drafting documentation, and building the browser UI. Specifically, ChatGPT-5 was used in the early stages of the process for debugging, and Claude Opus (versions 4.5, 4.6, and 4.7) was utilized throughout the majority of the project. All information created by AI has been manually reviewed/revised. A log of major AI-assisted edits is available in `ai_changelog.md`.
 
 ## Have EAD 2002 files?
 
@@ -37,8 +43,6 @@ This tool reads **EAD3** only. EAD 2002 (deprecated by SAA in 2014) needs to be 
   ```
 
 ## Limitations
-
-This tool is designed around IUL cataloging conventions; some of these may or may not apply to your workflow.
 
 - **Main entry defaults to first creator.** The first `<origination>` element in the EAD becomes the 100/110. Catalogers must manually swap 100↔700 (or 110↔710) in MARCEdit if a different creator should be the main entry.
 - **LCNAF used as-is.** When an authority record is fetched, missing subfields like `$d` (life dates) are NOT supplemented from EAD source data. Per IUL's "LCNAF as-is" policy.
@@ -87,36 +91,24 @@ This writes the bundled HTML to two locations:
 - `EAD2MARC_workzone/sandboxes/ead2marc_stage2_bundled.html` — for local testing (open from disk)
 - `docs/index.html` — the file GitHub Pages serves
 
-Commit and push `docs/index.html` to update the live site.
-
-## Repository structure
-
-```text
-EAD2MARC_XML/
-├── docs/
-│   └── index.html                    # Live browser tool (served by GitHub Pages)
-├── EAD2MARC_workzone/
-│   ├── EAD2MARCv2.0.py              # Main converter script
-│   ├── archived EAD2MARC/            # Older script versions
-│   └── sandboxes/
-│       ├── ead2marc_stage2.html      # Source HTML (un-bundled)
-│       ├── ead2marc_stage2_bundled.html  # Built artifact
-│       └── build_bundle.py           # Build script
-├── tasks/
-│   └── todo.md                       # Task tracking
-├── requirements.txt                  # Python dependencies for the standalone script
-├── CLAUDE.md                         # Development notes for Claude Code
-└── README.md
-```
+Commit and push both files. `docs/index.html` is what updates the live site; keeping `ead2marc_stage2_bundled.html` in sync prevents stale-bundle confusion on future rebuilds.
 
 ## References
 
 - [EAD Official Site (Library of Congress)](https://www.loc.gov/ead/)
 - [MARC21 Format for Bibliographic Data](https://www.loc.gov/marc/bibliographic/)
-- [id.loc.gov Authorities](https://id.loc.gov/) — LCNAF, LCSH, LCGFT
-- [ArchivesSpace](https://archivesspace.org/) — source system for IUL finding aids
-- [Pyodide](https://pyodide.org/) — the Python interpreter that runs the converter in your browser
+- [id.loc.gov Authorities](https://id.loc.gov/)
+- [ArchivesSpace](https://archivesspace.org/)
+- [Pyodide](https://pyodide.org/)
 
 ## License
 
-MIT
+[MIT](https://opensource.org/license/mit)
+
+Copyright 2026 Sarah Helen Carter
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

@@ -1,3 +1,50 @@
+"""EAD2MARC: Convert ArchivesSpace EAD3 finding aids to MARCXML records.
+
+This script reads an EAD3 XML file and produces a MARCXML record collection.
+
+Originally built by Sarah Helen Carter for the IU Cook Music Library.
+(Field mappings and conventions follow IU Libraries [IUL] practice.)
+
+This same script also serves as the source for the browser-based version
+deployed at https://supertonic2.github.io/EAD2MARC_XML/, which embeds these
+function definitions via Pyodide and runs the same conversion in-browser.
+See README.md for both browser and command-line usage.
+
+Inputs:
+    INPUT_FILE constant defined near the top of this file. Set it to the
+    path of your EAD3 XML file before running.
+
+Outputs:
+    A MARCXML file written to the working directory.
+
+External Services:
+    id.loc.gov — queried for LCNAF, LCSH, and LCGFT authority records.
+    No other external service is contacted.
+
+Dependencies:
+    lxml, requests, pycallnumber (see requirements.txt).
+    All other imports are standard library.
+
+AI Disclosure:
+    The conversion logic itself is deterministic Python. 
+    No AI is invoked during runtime. 
+    The same input always produces the same output.
+
+    AI tools were used during development: ChatGPT-5 in the early stages
+    for debugging, and Claude Opus 4.5, 4.6, and 4.7 throughout for
+    debugging, code generation, and documentation. Lines that were
+    AI-generated or AI-assisted are marked with a comment such as:
+        # (This portion of code was generated utilizing Claude Opus X.Y) or
+        # (This portion of code was troubleshot utilizing Claude Opus X.Y).
+    All AI-generated content has been manually reviewed and revised.
+    Changelog of AI-assisted edits available at tasks/ai_changelog.md.
+
+Version:
+    v2.0 — first release version. Earlier iterations (v1.0 through v1.84)
+    are preserved in EAD2MARC_workzone/archived EAD2MARC/.
+"""
+
+
 import re
 import time
 import requests
@@ -7,24 +54,33 @@ import unicodedata
 from copy import deepcopy
 from lxml import etree
 from datetime import datetime
-# import collections
 
-# Rate-limited wrapper for requests to loc.gov (max 10 requests/minute)
+# !!! Replace C:\path\to\your\ead3.xml with your filepath !!!
+INPUT_FILE = r"C:\path\to\your\ead3.xml"
+
+# Toggle for VIAF fallback lookups. 
+    # BROWSER: Set FALSE for browser/CORS compatibility
+    # TERMINAL: Set TRUE if the VIAF SRU search and cluster-fetch paths are desired.
+# (This portion of code was generated utilizing Claude Opus 4.7)
+VIAF_ENABLED = False
+
+# Rate-limited wrapper for requests to loc.gov 
+# Max 10 requests/minute
 # (This portion of code was generated utilizing Claude Opus 4.6)
 _last_loc_request_time = 0
+RATE_LIMIT_SECS = 7 # DO NOT set lower than 6
 
 def loc_get(url, **kwargs):
     """Rate-limited requests.get for loc.gov endpoints."""
     global _last_loc_request_time
     elapsed = time.time() - _last_loc_request_time
-    if elapsed < 7:
-        time.sleep(7 - elapsed)
+    if elapsed < RATE_LIMIT_SECS:
+        time.sleep(RATE_LIMIT_SECS - elapsed)
     _last_loc_request_time = time.time()
     return requests.get(url, **kwargs)
 
 # Returns the id.loc.gov MARCXML URL for an LC authority ID, routed by ID prefix.
-# Swapped from lccn.loc.gov because id.loc.gov sends CORS headers (browser-compatible),
-# while lccn.loc.gov does not.
+# Swapped from lccn.loc.gov because id.loc.gov sends CORS headers (browser-compatible)
 # (This portion of code was generated utilizing Claude Opus 4.7)
 def lc_authority_url(authfile_no):
     """Returns the id.loc.gov MARCXML URL for an LC authority ID."""
@@ -40,12 +96,6 @@ def lc_authority_url(authfile_no):
     else:
         # Unknown prefix; default to names (most common LCNAF case)
         return f"https://id.loc.gov/authorities/names/{aid}.marcxml.xml"
-
-# Toggle for VIAF fallback lookups. Set False for browser/CORS compatibility
-# (VIAF sends no Access-Control-Allow-Origin headers). Set True for standalone
-# Python use if the VIAF SRU search and cluster-fetch paths are desired.
-# (This portion of code was generated utilizing Claude Opus 4.7)
-VIAF_ENABLED = False
 
 # User-customizable cataloging codes. The browser UI can override these by
 # setting them as Pyodide globals before each conversion run (the existing
@@ -204,9 +254,7 @@ def ead2marc_020(unitid_raw):
     field_020_open = """<datafield tag="020" ind1=" " ind2=" ">"""
     field_020_str_nb = field_020_open + a_020 + "</datafield>"
     field_020_xml = etree.fromstring(field_020_str_nb)
-    # field_020_str = etree.tostring(field_020_xml, pretty_print=True, encoding="unicode")
 
-    # print(field_020_str)
     return field_020_xml
 
 
@@ -227,9 +275,7 @@ def ead2marc_022(unitid_raw):
     field_022_open = """<datafield tag="022" ind1=" " ind2=" ">"""
     field_022_str_nb = field_022_open + a_022 + "</datafield>"
     field_022_xml = etree.fromstring(field_022_str_nb)
-    # field_022_str = etree.tostring(field_022_xml, pretty_print=True, encoding="unicode")
 
-    # print(field_022_str)
     return field_022_xml
 
 
@@ -256,9 +302,7 @@ def ead2marc_023(unitid_raw):
     field_023_open = f"""<datafield tag="023" ind1="{ind1_023}" ind2=" ">"""
     field_023_str_nb = field_023_open + a_023 + "</datafield>"
     field_023_xml = etree.fromstring(field_023_str_nb)
-    # field_023_str = etree.tostring(field_023_xml, pretty_print=True, encoding="unicode")
 
-    # print(field_023_str)
     return field_023_xml
 
 
@@ -297,9 +341,7 @@ def ead2marc_024(unitid_raw):
     field_024_open = f"""<datafield tag="024" ind1="{ind1_024}" ind2=" ">"""
     field_024_str_nb = field_024_open + a_024 + field_2_024 + "</datafield>"
     field_024_xml = etree.fromstring(field_024_str_nb)
-    # field_024_str = etree.tostring(field_024_xml, pretty_print=True, encoding="unicode")
 
-    # print(field_024_str)
     return field_024_xml
 
 
@@ -321,9 +363,7 @@ def ead2marc_026(unitid_raw):
     field_026_open = """<datafield tag="026" ind1=" " ind2=" ">"""
     field_026_str_nb = field_026_open + e_026 + "</datafield>"
     field_026_xml = etree.fromstring(field_026_str_nb)
-    # field_026_str = etree.tostring(field_026_xml, pretty_print=True, encoding="unicode")
 
-    # print(field_026_str)
     return field_026_xml
 
 
@@ -344,9 +384,7 @@ def ead2marc_027(unitid_raw):
     field_027_open = """<datafield tag="027" ind1=" " ind2=" ">"""
     field_027_str_nb = field_027_open + a_027 + "</datafield>"
     field_027_xml = etree.fromstring(field_027_str_nb)
-    # field_027_str = etree.tostring(field_027_xml, pretty_print=True, encoding="unicode")
 
-    # print(field_027_str)
     return field_027_xml
 
 
@@ -386,9 +424,7 @@ def ead2marc_028(unitid_raw):
     field_028_open = f"""<datafield tag="028" ind1="{ind1_028}" ind2=" ">"""
     field_028_str_nb = field_028_open + a_028 + field_2_028 + "</datafield>"
     field_028_xml = etree.fromstring(field_028_str_nb)
-    # field_028_str = etree.tostring(field_028_xml, pretty_print=True, encoding="unicode")
 
-    # print(field_028_str)
     return field_028_xml
 
 
@@ -441,9 +477,7 @@ def ead2marc_050(unitid_raw):
     field_050_open = """<datafield tag="050" ind1=" " ind2="4">"""
     field_050_str_nb = field_050_open + a_050 + b_050 + "</datafield>"
     field_050_xml = etree.fromstring(field_050_str_nb)
-    # field_050_str = etree.tostring(field_050_xml, pretty_print=True, encoding="unicode")
 
-    # print(field_050_str)
     return field_050_xml
 
 def ead2marc_035(unitid_raw):
@@ -470,9 +504,7 @@ def ead2marc_035(unitid_raw):
     field_035_open = """<datafield tag="035" ind1=" " ind2=" ">"""
     field_035_str_nb = field_035_open + a_035 + "</datafield>"
     field_035_xml = etree.fromstring(field_035_str_nb)
-    # field_035_str = etree.tostring(field_035_xml, pretty_print=True, encoding="unicode")
 
-    # print(field_035_str)
     return field_035_xml
 
 def ead2marc_082(unitid_raw):
@@ -508,9 +540,7 @@ def ead2marc_082(unitid_raw):
     field_082_open = """<datafield tag="082" ind1="0" ind2="4">"""
     field_082_str_nb = field_082_open + a_082 + b_082 + "</datafield>"
     field_082_xml = etree.fromstring(field_082_str_nb)
-    # field_082_str = etree.tostring(field_082_xml, pretty_print=True, encoding="unicode")
 
-    # print(field_082_str)
     return field_082_xml
 
 
@@ -532,9 +562,7 @@ def ead2marc_086(unitid_raw):
     field_086_open = """<datafield tag="086" ind1=" " ind2="4">"""
     field_086_str_nb = field_086_open + a_086 + "</datafield>"
     field_086_xml = etree.fromstring(field_086_str_nb)
-    # field_086_str = etree.tostring(field_086_xml, pretty_print=True, encoding="unicode")
 
-    # print(field_086_str)
     return field_086_xml
 
 
@@ -625,9 +653,11 @@ def ead2marc_040():
     '''Creates 040 for IU Libraries (constant)'''
 
     field_040_xml_list = []
+    
     # INDICATORS
     # Indicator 1 is constant (blank)
     # Indicator 2 is constant (blank)
+
     # SUBFIELDS
     # PRINT 040 FIELD
     field_040_open = """<datafield tag="040" ind1=" " ind2=" ">"""
@@ -651,9 +681,7 @@ def ead2marc_040():
     field_040_str_nb = field_040_open + a_040 + b_040 + e_040 + c_040 + field_040_close
     field_040_xml = etree.fromstring(field_040_str_nb)
     field_040_xml_list.append(field_040_xml)
-    # field_040_str = etree.tostring(field_040_xml, pretty_print=True, encoding="unicode")
 
-    # print(field_040_str)
     return field_040_xml_list
 
 
@@ -1250,9 +1278,6 @@ def ead2marc_041(raw):
             field_041_str_nb = field_041_open + "".join(a_041_list) + sf_2_041 + "</datafield>"
             field_041_xml = etree.fromstring(field_041_str_nb)
             field_041_xml_list.append(field_041_xml)
-            # field_041_str = etree.tostring(field_041_xml, pretty_print=True, encoding="unicode")
-
-            # print(field_041_str)
 
         return field_041_xml_list, all_langcodes
     return [], []
@@ -1282,9 +1307,7 @@ def ead2marc_049():
     field_049_str_nb = field_049_open + a_049 + field_049_close
     field_049_xml = etree.fromstring(field_049_str_nb)
     field_049_xml_list.append(field_049_xml)
-    # field_049_str = etree.tostring(field_049_xml, pretty_print=True, encoding="unicode")
 
-    # print(field_049_str)
     return field_049_xml_list
 
 def ead2marc_100(name):
@@ -1294,9 +1317,8 @@ def ead2marc_100(name):
     '''Creates 100 (main entry personal name) with authority validation'''
 
     # Check if main name is associated with an authority file
-    # (This portion of code partially revised utilizing ChatGPT 5.2)
     # Pull identifier
-    # (This portion of code was generated utilizing Claude Opus 4.6)
+    # (This portion of code was generated utilizing ChatGPT-5 & Claude Opus 4.6)
     timeout_error = False
     timeout_authfile_no = None
     if name.get("source") in {"lcnaf", "naf", "viaf"} and name.get("identifier") and not name.get("identifier", "").startswith("aspace_"):
@@ -1522,13 +1544,12 @@ def ead2marc_100(name):
         result_100.append(etree.Comment(f" NOTE: Authority {timeout_authfile_no} could not be fetched (connection timeout). Field was constructed manually. " if timeout_authfile_no else " NOTE: Authority lookup skipped (no ID in EAD); field constructed manually. "))
     result_100.append(field_100_xml)
 
-    # print(field_100_str)
     if field_100_xml is not None:
         return result_100
 
     # NOTE:
         # Subfield C is not currently supported for non-lcaf/viaf name authorities.
-        # Manually constructed amily names are not currently parsed and separated into subfields. All information placed in subfield A.
+        # Manually constructed family names are not currently parsed and separated into subfields. All information placed in subfield A.
 
 
 def ead2marc_110(name):
@@ -1536,9 +1557,8 @@ def ead2marc_110(name):
     '''Creates 110 (main entry corporate name) with authority validation'''
 
     # Check if main name is associated with an authority file
-    # (This portion of code partially revised utilizing ChatGPT 5.2)
     # Pull identifier
-    # (This portion of code was generated utilizing Claude Opus 4.6)
+    # (This portion of code was revised utilizing ChatGPT-5 & Claude Opus 4.6)
     timeout_error = False
     timeout_authfile_no = None
     if name.get("source") in {"lcnaf", "naf", "viaf"} and name.get("identifier") and not name.get("identifier", "").startswith("aspace_"):
@@ -1700,7 +1720,6 @@ def ead2marc_110(name):
         result_110.append(etree.Comment(f" NOTE: Authority {timeout_authfile_no} could not be fetched (connection timeout). Field was constructed manually. " if timeout_authfile_no else " NOTE: Authority lookup skipped (no ID in EAD); field constructed manually. "))
     result_110.append(field_110_xml)
 
-    # print(field_110_str)
     if field_110_xml is not None:
         return result_110
 
@@ -1749,7 +1768,7 @@ def ead2marc_245(raw):
     # Indicator 2 is constant (0)
 
     # Subfield A
-    # (This portion of code was partially revised utilizing ChatGPT 5.2)
+    # (This portion of code was revised utilizing ChatGPT-5)
     title_fetch = raw.xpath(".//*[local-name()='unittitle']")
     title_raw = title_fetch[0]
     title_clean = title_raw.xpath("string()").strip()
@@ -1769,9 +1788,7 @@ def ead2marc_245(raw):
     field_245_str_nb = """<datafield tag="245" ind1="1" ind2="0">""" + a_245 + "</datafield>"
     field_245_xml = etree.fromstring(field_245_str_nb)
     field_245_xml_list.append(field_245_xml)
-    # field_245_str = etree.tostring(field_245_xml, pretty_print=True, encoding="unicode")
 
-    # print(field_245_str)
     return field_245_xml_list, title_clean
 
 
@@ -1834,7 +1851,7 @@ def ead2marc_264(raw):
             # Indicator 1 is constant (blank)
 
             # Indicator 2
-            # (This portion of code was partially revised utilizing ChatGPT 5.2)
+            # (This portion of code was revised utilizing ChatGPT-5)
             # Get date label (datechar)
             datechar_clean = (unitdate.get("datechar")).strip()
             if unitdate.get("certainty"):
@@ -1892,8 +1909,6 @@ def ead2marc_264(raw):
             field_264_str_nb = field_264_open + c_264 + "</datafield>"
             field_264_xml = etree.fromstring(field_264_str_nb)
             field_264_xml_list.append(field_264_xml)
-            # field_264_str = etree.tostring(field_264_xml, pretty_print=True, encoding="unicode")
-            # print(field_264_str)
 
     return field_264_xml_list
 
@@ -1978,8 +1993,6 @@ def ead2marc_300(raw):
             field_300_str_nb = field_300_open + a_300_cs + c_300 + a_300_qu + f_300 + "</datafield>"
             field_300_xml = etree.fromstring(field_300_str_nb)
             field_300_xml_list.append(field_300_xml)
-            # field_300_str = etree.tostring(field_300_xml, pretty_print=True, encoding="unicode")
-            # print(field_300_str)
     else:
         # If no physdesc or phydescstructured elements exist, fallback is $a 1 [hierarchy level]
         # PRINT 300 FIELD
@@ -1988,8 +2001,6 @@ def ead2marc_300(raw):
         field_300_str_nb = field_300_open + "1 " + a_300 + "</datafield>"
         field_300_xml = etree.fromstring(field_300_str_nb)
         field_300_xml_list.append(field_300_xml)
-        # field_300_str = etree.tostring(field_300_xml, pretty_print=True, encoding="unicode")
-        # print(field_300_str)
 
     return field_300_xml_list, consumed_physdescs
         # Consumed_physdescs included in return for use in ead2marc_500
@@ -2097,9 +2108,6 @@ def ead2marc_336(raw):
         field_336_str_nb = field_336_op + a_336 + b_336 + sf2_336 + "</datafield>"
         field_336_xml = etree.fromstring(field_336_str_nb)
         field_336_xml_list.append(field_336_xml)
-        # field_336_str = etree.tostring(field_336_xml, pretty_print=True, encoding="unicode")
-
-        # print(field_336_str)
 
     if field_336_xml_list:
         return field_336_xml_list, ctype_code_list
@@ -2182,9 +2190,6 @@ def ead2marc_337(raw):
         field_337_str_nb = field_337_op + a_337 + b_337 + sf2_337 + "</datafield>"
         field_337_xml = etree.fromstring(field_337_str_nb)
         field_337_xml_list.append(field_337_xml)
-        # field_337_str = etree.tostring(field_337_xml, pretty_print=True, encoding="unicode")
-
-        # print(field_337_str)
 
     if field_337_xml_list:
         return field_337_xml_list
@@ -2305,9 +2310,6 @@ def ead2marc_338(raw):
         field_338_str_nb = field_338_op + a_338 + b_338 + sf2_338 + "</datafield>"
         field_338_xml = etree.fromstring(field_338_str_nb)
         field_338_xml_list.append(field_338_xml)
-        # field_338_str = etree.tostring(field_338_xml, pretty_print=True, encoding="unicode")
-
-        # print(field_338_str)
 
     if field_338_xml_list:
         return field_338_xml_list
@@ -2343,9 +2345,6 @@ def ead2marc_351(raw):
             field_351_str_nb = """<datafield tag="351" ind1=" " ind2=" ">""" + a_351 + "</datafield>"
             field_351_xml = etree.fromstring(field_351_str_nb)
             field_351_xml_list.append(field_351_xml)
-            # field_351_str = etree.tostring(field_351_xml, pretty_print=True, encoding="unicode")
-
-            # print(field_351_str)
 
     if field_351_xml_list:
         return field_351_xml_list
@@ -2407,9 +2406,6 @@ def ead2marc_500(raw):
             field_500_str_nb = """<datafield tag="500" ind1=" " ind2=" ">""" + a_500 + "</datafield>"
             field_500_xml = etree.fromstring(field_500_str_nb)
             field_500_xml_list.append(field_500_xml)
-            # field_500_str = etree.tostring(field_500_xml, pretty_print=True, encoding="unicode")
-
-            # print(field_500_str)
 
         if field_500_xml_list:
             return field_500_xml_list
@@ -2445,9 +2441,6 @@ def ead2marc_506(raw):
     field_506_str_nb = """<datafield tag="506" ind1=" " ind2=" ">""" + a_506 + "</datafield>"
     field_506_xml = etree.fromstring(field_506_str_nb)
     field_506_xml_list.append(field_506_xml)
-    # field_506_str = etree.tostring(field_506_xml, pretty_print=True, encoding="unicode")
-
-    # print(field_506_str)
 
     if field_506_xml_list:
         return field_506_xml_list
@@ -2493,9 +2486,6 @@ def ead2marc_520(raw):
             field_520_str_nb = field_520_open + a_520 + "</datafield>"
             field_520_xml = etree.fromstring(field_520_str_nb)
             field_520_xml_list.append(field_520_xml)
-            # field_520_str = etree.tostring(field_520_xml, pretty_print=True, encoding="unicode")
-
-            # print(field_520_str)
 
         if field_520_xml_list:
             return field_520_xml_list
@@ -2529,9 +2519,6 @@ def ead2marc_524(raw):
             field_524_str_nb = """<datafield tag="524" ind1=" " ind2=" ">""" + a_524 + "</datafield>"
             field_524_xml = etree.fromstring(field_524_str_nb)
             field_524_xml_list.append(field_524_xml)
-            # field_524_str = etree.tostring(field_524_xml, pretty_print=True, encoding="unicode")
-
-            # print(field_524_str)
 
         return field_524_xml_list
 
@@ -2574,9 +2561,6 @@ def ead2marc_535(raw):
             field_535_str_nb = field_535_open + a_535 + "</datafield>"
             field_535_xml = etree.fromstring(field_535_str_nb)
             field_535_xml_list.append(field_535_xml)
-            # field_535_str = etree.tostring(field_535_xml, pretty_print=True, encoding="unicode")
-
-            # print(field_535_str)
 
         if field_535_xml_list:
             return field_535_xml_list
@@ -2611,9 +2595,6 @@ def ead2marc_540(raw):
             field_540_str_nb = """<datafield tag="540" ind1=" " ind2=" ">""" + a_540 + "</datafield>"
             field_540_xml = etree.fromstring(field_540_str_nb)
             field_540_xml_list.append(field_540_xml)
-            # field_540_str = etree.tostring(field_540_xml, pretty_print=True, encoding="unicode")
-
-            # print(field_540_str)
 
         if field_540_xml_list:
             return field_540_xml_list
@@ -2656,9 +2637,6 @@ def ead2marc_541(raw):
             field_541_str_nb = field_541_open + a_541 + "</datafield>"
             field_541_xml = etree.fromstring(field_541_str_nb)
             field_541_xml_list.append(field_541_xml)
-            # field_541_str = etree.tostring(field_541_xml, pretty_print=True, encoding="unicode")
-
-            # print(field_541_str)
 
         if field_541_xml_list:
             return field_541_xml_list
@@ -2693,9 +2671,6 @@ def ead2marc_544(raw):
             field_544_str_nb = """<datafield tag="544" ind1=" " ind2=" ">""" + n_544 + "</datafield>"
             field_544_xml = etree.fromstring(field_544_str_nb)
             field_544_xml_list.append(field_544_xml)
-            # field_544_str = etree.tostring(field_544_xml, pretty_print=True, encoding="unicode")
-
-            # print(field_544_str)
 
         if field_544_xml_list:
             return field_544_xml_list
@@ -2730,9 +2705,6 @@ def ead2marc_545(raw):
             field_545_str_nb = """<datafield tag="545" ind1=" " ind2=" ">""" + a_545 + "</datafield>"
             field_545_xml = etree.fromstring(field_545_str_nb)
             field_545_xml_list.append(field_545_xml)
-            # field_545_str = etree.tostring(field_545_xml, pretty_print=True, encoding="unicode")
-
-            # print(field_545_str)
 
         if field_545_xml_list:
             return field_545_xml_list
@@ -2784,9 +2756,6 @@ def ead2marc_546(raw):
             field_546_str_nb = """<datafield tag="546" ind1=" " ind2=" ">""" + a_546 + "</datafield>"
             field_546_xml = etree.fromstring(field_546_str_nb)
             field_546_xml_list.append(field_546_xml)
-            # field_546_str = etree.tostring(field_546_xml, pretty_print=True, encoding="unicode")
-
-            # print(field_546_str)
 
         return field_546_xml_list
 
@@ -2822,9 +2791,6 @@ def ead2marc_555(va_id):
         field_555_str_nb = field_555_op + a_555 + u_555 + "</datafield>"
         field_555_xml = etree.fromstring(field_555_str_nb)
         field_555_xml_list.append(field_555_xml)
-        # field_555_str = etree.tostring(field_555_xml, pretty_print=True, encoding="unicode")
-
-        # print(field_555_str)
 
     return field_555_xml_list
 
@@ -2866,9 +2832,6 @@ def ead2marc_561(raw):
             field_561_str_nb = field_561_open + a_561 + "</datafield>"
             field_561_xml = etree.fromstring(field_561_str_nb)
             field_561_xml_list.append(field_561_xml)
-            # field_561_str = etree.tostring(field_561_xml, pretty_print=True, encoding="unicode")
-
-            # print(field_561_str)
 
         if field_561_xml_list:
             return field_561_xml_list
@@ -2911,9 +2874,6 @@ def ead2marc_583(raw):
             field_583_str_nb = field_583_open + a_583 + "</datafield>"
             field_583_xml = etree.fromstring(field_583_str_nb)
             field_583_xml_list.append(field_583_xml)
-            # field_583_str = etree.tostring(field_583_xml, pretty_print=True, encoding="unicode")
-
-            # print(field_583_str)
 
         if field_583_xml_list:
             return field_583_xml_list
@@ -2948,9 +2908,6 @@ def ead2marc_584(raw):
             field_584_str_nb = """<datafield tag="584" ind1=" " ind2=" ">""" + a_584 + "</datafield>"
             field_584_xml = etree.fromstring(field_584_str_nb)
             field_584_xml_list.append(field_584_xml)
-            # field_584_str = etree.tostring(field_584_xml, pretty_print=True, encoding="unicode")
-
-            # print(field_584_str)
 
         if field_584_xml_list:
             return field_584_xml_list
@@ -3226,7 +3183,6 @@ def ead2marc_600(name):
         result_600.append(etree.Comment(f" NOTE: Authority {timeout_authfile_no} could not be fetched (connection timeout). Field was constructed manually. " if timeout_authfile_no else " NOTE: Authority lookup skipped (no ID in EAD); field constructed manually. "))
     result_600.append(field_600_xml)
 
-    # print(field_600_str)
     # (This portion of code was generated utilizing Claude Opus 4.6)
     return result_600
 
@@ -3434,7 +3390,6 @@ def ead2marc_610(name):
         result_610.append(etree.Comment(f" NOTE: Authority {timeout_authfile_no} could not be fetched (connection timeout). Field was constructed manually. " if timeout_authfile_no else " NOTE: Authority lookup skipped (no ID in EAD); field constructed manually. "))
     result_610.append(field_610_xml)
 
-    # print(field_610_str)
     return result_610
 
     # NOTE:
@@ -3596,7 +3551,6 @@ def ead2marc_630(title):
         result_630.append(etree.Comment(f" NOTE: Authority {timeout_authfile_no} could not be fetched (connection timeout). Field was constructed manually. " if timeout_authfile_no else " NOTE: Authority lookup skipped (no ID in EAD); field constructed manually. "))
     result_630.append(field_630_xml)
 
-    # print(field_630_str)
     return result_630
 
 
@@ -3754,7 +3708,6 @@ def ead2marc_650(sh):
         result_650.append(etree.Comment(f" NOTE: Authority {timeout_authfile_no} could not be fetched (connection timeout). Field was constructed manually. " if timeout_authfile_no else " NOTE: Authority lookup skipped (no ID in EAD); field constructed manually. "))
     result_650.append(field_650_xml)
 
-    # print(field_650_str)
     return result_650
 
 
@@ -3912,7 +3865,6 @@ def ead2marc_651(geo):
         result_651.append(etree.Comment(f" NOTE: Authority {timeout_authfile_no} could not be fetched (connection timeout). Field was constructed manually. " if timeout_authfile_no else " NOTE: Authority lookup skipped (no ID in EAD); field constructed manually. "))
     result_651.append(field_651_xml)
 
-    # print(field_651_str)
     return result_651
 
 
@@ -4085,7 +4037,6 @@ def ead2marc_655(gf):
         result_655.append(etree.Comment(f" NOTE: Authority {timeout_authfile_no} could not be fetched (connection timeout). Field was constructed manually. " if timeout_authfile_no else " NOTE: Authority lookup skipped (no ID in EAD); field constructed manually. "))
     result_655.append(field_655_xml)
 
-    # print(field_655_str)
     return result_655
     # NOTE: Indicators beyond $a and $f are not currently supported
 
@@ -4110,16 +4061,14 @@ def ead2marc_656(occ):
     # Subfield F
     f_656 = f"""<subfield code="2">{authority}</subfield>""" if authority is not None else ""
 
+    # NOTE: Indicators beyond $a and $f are not currently supported
+
     # PRINT 656 FIELD
     # (This portion of code was troubleshot using Claud Opus 4.5)
     field_656_str_nb = field_656_open + a_656 + f_656 + "</datafield>"
     field_656_xml = etree.fromstring(field_656_str_nb)
-    # field_656_str = etree.tostring(field_656_xml, pretty_print=True, encoding="unicode")
 
-    # print(field_656_str)
     return field_656_xml
-
-    # NOTE: Indicators beyond $a and $f are not currently supported
 
 
 def ead2marc_657(funct):
@@ -4142,16 +4091,14 @@ def ead2marc_657(funct):
     # Subfield F
     f_657 = f"""<subfield code="2">{authority}</subfield>""" if authority is not None else ""
 
+    # NOTE: Indicators beyond $a and $f are not currently supported
+
     # PRINT 657 FIELD
     # (This portion of code was troubleshot using Claud Opus 4.5)
     field_657_str_nb = field_657_open + a_657 + f_657 + "</datafield>"
     field_657_xml = etree.fromstring(field_657_str_nb)
-    # field_657_str = etree.tostring(field_657_xml, pretty_print=True, encoding="unicode")
 
-    # print(field_657_str)
     return field_657_xml
-
-    # NOTE: Indicators beyond $a and $f are not currently supported
 
 
 def ead2marc_600_610_630_65x(names_list):
@@ -4245,8 +4192,6 @@ def ead2marc_690(raw_root):
         # (This portion of code was troubleshot using Claud Opus 4.5)
         field_690_str_nb = field_690_open + a_690 + sf2_690 + sf5_690 + "</datafield>"
         field_690_xml = etree.fromstring(field_690_str_nb)
-        # field_690_str = etree.tostring(field_690_xml, pretty_print=True, encoding="unicode")
-        # print(field_690_str)
         field_690_xml_list.append(field_690_xml)
 
         return field_690_xml_list
@@ -4259,9 +4204,8 @@ def ead2marc_700(name):
     '''Creates 700 (added entry personal name) with authority validation'''
 
     # Check if name is associated with an authority file
-    # (This portion of code partially revised utilizing ChatGPT 5.2)
     # Pull identifier
-    # (This portion of code was generated utilizing Claude Opus 4.6)
+    # (This portion of code was generated utilizing ChatGPT-5 & Claude Opus 4.6)
     timeout_error = False
     timeout_authfile_no = None
     if name.get("source") in {"lcnaf", "naf", "viaf"} and name.get("identifier") and not name.get("identifier", "").startswith("aspace_"):
@@ -4498,8 +4442,6 @@ def ead2marc_700(name):
         result_700.append(etree.Comment(f" NOTE: Authority {timeout_authfile_no} could not be fetched (connection timeout). Field was constructed manually. " if timeout_authfile_no else " NOTE: Authority lookup skipped (no ID in EAD); field constructed manually. "))
     result_700.append(field_700_xml)
 
-    # print(field_700_str)
-    # (This portion of code was generated utilizing Claude Opus 4.6)
     return result_700
 
 
@@ -4508,9 +4450,8 @@ def ead2marc_710(name):
     '''Creates 710 (added entry corporate name) with authority validation'''
 
     # Check if main name is associated with an authority file
-    # (This portion of code partially revised utilizing ChatGPT 5.2)
     # Pull identifier
-    # (This portion of code was generated utilizing Claude Opus 4.6)
+    # (This portion of code was generated utilizing ChatGPT-5 & Claude Opus 4.6)
     timeout_error = False
     timeout_authfile_no = None
     if name.get("source") in {"lcnaf", "naf", "viaf"} and name.get("identifier") and not name.get("identifier", "").startswith("aspace_"):
@@ -4677,7 +4618,6 @@ def ead2marc_710(name):
         result_710.append(etree.Comment(f" NOTE: Authority {timeout_authfile_no} could not be fetched (connection timeout). Field was constructed manually. " if timeout_authfile_no else " NOTE: Authority lookup skipped (no ID in EAD); field constructed manually. "))
     result_710.append(field_710_xml)
 
-    # print(field_710_str)
     return result_710
 
     # NOTE:
@@ -4742,9 +4682,6 @@ def ead2marc_856(raw):
         field_856_str_nb = """<datafield tag="856" ind1="4" ind2="2">""" + s3_856 + u_856 + "</datafield>"
         field_856_xml = etree.fromstring(field_856_str_nb)
         field_856_xml_list.append(field_856_xml)
-        # field_856_str = etree.tostring(field_856_xml, pretty_print=True, encoding="unicode")
-
-        # print(field_856_str)
 
     return field_856_xml_list
 
@@ -4836,9 +4773,7 @@ def ead2marc_leader(raw):
     leader_str_nb = f"""<leader>{leader_content}</leader>"""
     leader_xml = etree.fromstring(leader_str_nb)
     leader_xml_list.append(leader_xml)
-    # leader_str = etree.tostring(leader_xml, pretty_print=True, encoding="unicode")
 
-    # print(leader_str)
     return leader_xml_list, p6, p7
 
 
@@ -5275,9 +5210,7 @@ def ead2marc_008(raw):
     field_008_nb = f"""<controlfield>{field_008_content}</controlfield>"""
     field_008_xml = etree.fromstring(field_008_nb)
     field_008_xml_list.append(field_008_xml)
-    # field_008_str = etree.tostring(field_008_xml, pretty_print=True, encoding="unicode")
 
-    # print(field_008_str)
     return field_008_xml_list
 
 
@@ -5292,7 +5225,6 @@ def ead2marc_rec(raw):
     field_040_xml_list = ead2marc_040()
     field_041_xml_list, all_langcodes = ead2marc_041(raw)
     field_049_xml_list = ead2marc_049()
-    # field_099_xml_list = ead2marc_099(root, raw)
 
     # 1xx fields
     field_100_110_xml_list = ead2marc_100_110(creator_names_list)
@@ -5345,7 +5277,6 @@ def ead2marc_rec(raw):
     for field_list in [
         leader_xml_list, field_008_xml_list, 
         field_040_xml_list, field_041_xml_list, field_049_xml_list, field__02x_03x_05x_08x_xml_list, 
-        # field_099_xml_list,
         field_100_110_xml_list,
         field_245_xml_list, field_246_xml_list, field_264_xml_list,
         field_300_xml_list, field_336_xml_list, field_337_xml_list,
@@ -5383,7 +5314,6 @@ def ead2marc_rec(raw):
     # (This portion of code was generated utilizing Claude Opus 4.6)
     rec_str = re.sub(r'<(marc:datafield) ind1="(.)" ind2="(.)" tag="(\d+)">', r'<\1 tag="\4" ind1="\2" ind2="\3">', rec_str)
     rec_xml = etree.fromstring(rec_str)
-    # print(rec_str)
 
     # Print progress message
     # (This portion of code was generated utilizing Claude Opus 4.6)
@@ -5399,7 +5329,7 @@ def ead2marc_rec(raw):
 # ============================================================
 
 # Gets xml file and sets tree and root
-tree = etree.parse(r"C:\Users\yello\OneDrive\Documents\EAD2MARC\EAD2MARC_workzone\MC122_ead3.xml")
+tree = etree.parse(INPUT_FILE)
 root = tree.getroot()
 2
 # Checks that document is EAD3
@@ -5474,7 +5404,7 @@ if 'http://ead3.archivists.org/schema/' in root.tag:
             vaid_clean = html.escape(vaid_clean)
 
         # Set global names lists
-        names_list = c0_raw.xpath(".//*[local-name()='origination']") # (Troubleshot using ChatGPT 5.2)
+        names_list = c0_raw.xpath(".//*[local-name()='origination']") # (Troubleshot using ChatGPT-5)
 
         all_persnames_list = []
         all_corpnames_list = []
