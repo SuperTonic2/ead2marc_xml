@@ -1,5 +1,45 @@
 # Major Claude Edits
 
+## 2026-06-16: v2.0.py — Two Bugs Surfaced by Full MC122 Browser Run
+
+Two distinct bugs surfaced by a full-collection browser run on `MC122_ead3_ASv3.5.1.xml` (802 records) using Firefox. 66 records failed — 65 from Bug A, 1 from Bug B.
+
+### Bug A: `UnboundLocalError: a_546` in `ead2marc_546` (65 records)
+
+**What was done:** 65 records in the MC122 sub-range 605-736 (item-level records) crashed with `UnboundLocalError: cannot access local variable 'a_546' where it is not associated with a value` at line 2757 of `ead2marc_546`.
+
+**Root cause:** Inside the per-langmaterial loop, the function tries to assign `a_546` (the `$a` subfield string) from one of two sources: a `<descriptivenote>` child of the current `<langmaterial>` (preferred), or by iterating over a list of `<languageset>` elements (fallback). The bug: when the current langmaterial had no `<descriptivenote>` AND `languageset_list` was empty (no `<languageset>` elements anywhere in the record), the `for languageset in languageset_list:` loop didn't iterate, leaving `a_546` unassigned. The next line (`field_546_str_nb = "..." + a_546 + "..."`) crashed.
+
+The 65 failing records are item-level exports that likely have `<langmaterial>` containing just `<language>` directly (the simple EAD3 form), without the structured `<langmaterial><languageset><language/><script/></languageset></langmaterial>` wrapping found in collection-level records.
+
+**Fix:** Changed the `else:` branch to `elif languageset_list:` and added an explicit `else: continue` to skip langmaterials with neither source available. Records without usable structured language data now produce no 546 field (correct behavior) instead of crashing.
+
+**Functions affected:** `ead2marc_546`.
+
+**Open follow-up:** A future enhancement could also handle `<language>` directly inside `<langmaterial>` (no wrapping `<languageset>`). The simple form is valid EAD3 but currently produces no 546 field at all under this fix — the script silently skips when no structured `<languageset>` is present.
+
+### Bug B: `XMLSyntaxError: xmlParseEntityRef` in non-authority name construction (1 record + 5 latent sites)
+
+**What was done:** Record 769 ("Mahler, Gustave, Photograph of Bust by Auguste Rodin") crashed with `lxml.etree.XMLSyntaxError: xmlParseEntityRef: no name, line 1, column 77` at line 4606 of `ead2marc_710`.
+
+**Root cause:** Classic "unescaped ampersand" bug. The non-authority name-construction path reads name text directly from the EAD via `name.xpath("string()").strip()` and plugs it into an f-string for XML without HTML-escaping. When the name contains an `&`, `<`, or `>`, the resulting XML is malformed and `etree.fromstring` fails on `xmlParseEntityRef: no name`.
+
+This pattern existed in **six functions** across the script — all the non-authority branches that construct 100/110/600/610/700/710 manually from EAD text. Record 769 happened to trip the 710 site (corporate name with a special character); the other 5 sites are latent crashes for any record with a special character in a non-authority person/corporate name.
+
+**Fix:** Wrapped `a_content` assignment with `html.escape()` at all six sites:
+
+```python
+a_content = html.escape(name.xpath("string()").strip())
+```
+
+`html.escape()` converts `&`→`&amp;`, `<`→`&lt;`, `>`→`&gt;`, producing valid XML. Idempotent on already-safe text, so applying preemptively to the 5 non-crashing sites is risk-free.
+
+**Functions affected:** `ead2marc_100` (line 1468), `ead2marc_110` (line 1693), `ead2marc_600` (line 3083), `ead2marc_610` (line 3362), `ead2marc_700` (line 4363), `ead2marc_710` (line 4589).
+
+**Verified:** Bundle rebuilt cleanly (~400 bytes added, matching the scope of the changes — `elif`/`continue` block + 6 `html.escape()` wrappings). Both bugs should be resolved on the next full re-run.
+
+---
+
 ## 2026-06-15: v2.0.py — Fix Redundant `authfile_no` Reassignment in `ead2marc_600` and `ead2marc_700`
 
 **What was done:** A full-collection test run on `MC122_ead3_ASv3.5.1.xml` (802 records) crashed on records 17 and 20 with `AttributeError: 'NoneType' object has no attribute 'strip'`. Traceback ended at line 88 (`lc_authority_url`'s `authfile_no.strip()`), called from line 4253 of `ead2marc_700`.
