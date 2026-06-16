@@ -1465,7 +1465,7 @@ def ead2marc_100(name):
     # Indicator 1
     # (This portion of code was troubleshot utilizing Claude Opus 4.6)
     if authority not in ["lcnaf", "viaf"]:
-        a_content = name.xpath("string()").strip()
+        a_content = html.escape(name.xpath("string()").strip())
         a_split = a_content.split(", ")
         # (This portion of code was troubleshot utilizing Claude Opus 4.6)
         if name.tag.endswith('famname') or name in creator_famnames_list:
@@ -1690,7 +1690,7 @@ def ead2marc_110(name):
     # Subfield A
     # (This portion of code was generated utilizing Claude Opus 4.5)
     if authority not in ["lcnaf", "viaf"]:
-        a_content = name.xpath("string()").strip()
+        a_content = html.escape(name.xpath("string()").strip())
         # (This portion of code was generated utilizing Claude Opus 4.6)
         if e_110:
             a_content += ","
@@ -2740,7 +2740,7 @@ def ead2marc_546(raw):
                 langnote_clean = " ".join(langnote_clean.split())
                 langnote_clean = html.escape(langnote_clean)
                 a_546 = f"""<subfield code="a">{isbd_terminal_period(langnote_clean)}</subfield>"""
-            else:
+            elif languageset_list:
                 # If descriptive language note does not exist, $a is [Language 1], [Language 2], ...
                 language_clean_list = []
                 for languageset in languageset_list:
@@ -2752,6 +2752,11 @@ def ead2marc_546(raw):
                     language_clean_list.append(language_clean)
                     languages = (", ").join(language_clean_list)
                     a_546 = f"""<subfield code="a">{isbd_terminal_period(languages)}</subfield>"""
+            else:
+                # No descriptivenote and no languageset — skip this langmaterial to avoid
+                # building a 546 with no $a. (Was crashing UnboundLocalError before this guard.)
+                # (This portion of code was generated utilizing Claude Opus 4.7)
+                continue
 
             # PRINT 546 FIELD
             field_546_str_nb = """<datafield tag="546" ind1=" " ind2=" ">""" + a_546 + "</datafield>"
@@ -3080,7 +3085,7 @@ def ead2marc_600(name):
     # Indicator 1
     # (This portion of code was troubleshot utilizing Claude Opus 4.6)
     if authority not in ["lcnaf", "viaf"]:
-        a_content = name.xpath("string()").strip()
+        a_content = html.escape(name.xpath("string()").strip())
         a_split = a_content.split(", ")
         # (This portion of code was generated utilizing Claude Opus 4.6)
         if name.tag.endswith('famname'):
@@ -3359,7 +3364,7 @@ def ead2marc_610(name):
 
     # Subfield A
     if authority not in ["lcnaf", "viaf"]:
-        a_content = name.xpath("string()").strip()
+        a_content = html.escape(name.xpath("string()").strip())
         # (This portion of code was generated utilizing Claude Opus 4.6)
         if e_610:
             a_content += ","
@@ -4360,7 +4365,7 @@ def ead2marc_700(name):
     # Indicator 1
     # (This portion of code was troubleshot utilizing Claude Opus 4.6)
     if authority not in ["lcnaf", "viaf"]:
-        a_content = name.xpath("string()").strip()
+        a_content = html.escape(name.xpath("string()").strip())
         a_split = a_content.split(", ")
         # (This portion of code was generated utilizing Claude Opus 4.6)
         if name.tag.endswith('famname'):
@@ -4586,7 +4591,7 @@ def ead2marc_710(name):
 
     # Subfield A
     if authority not in ["lcnaf", "viaf"]:
-        a_content = name.xpath("string()").strip()
+        a_content = html.escape(name.xpath("string()").strip())
         # (This portion of code was generated utilizing Claude Opus 4.6)
         if e_710:
             a_content += ","
@@ -5371,19 +5376,24 @@ if 'http://ead3.archivists.org/schema/' in root.tag:
         # Apply record range filter
         # (This portion of code was generated utilizing Claude Opus 4.6)
         print(f"Found {len(result)} records.")
-        rec_range = input("Enter record range (e.g. 2-5, 20-25, :-3, 5:, blank for all): ").strip()
+        rec_range = input("Enter record range (e.g. 2-5, :5 or -5 for first 5, 10: or 10- for record 10 onward, blank for all): ").strip()
         if rec_range:
             try:
-                if '-' in rec_range and not rec_range.startswith('-') and ':' not in rec_range:
-                    # Handle "2-5" style (1-indexed, inclusive)
-                    parts = rec_range.split('-')
-                    start = int(parts[0]) - 1
-                    end = int(parts[1])
-                    result = result[start:end]
+                # Unified parser: '-' and ':' are equivalent separators. All
+                # bounds are 1-indexed and inclusive (matching how a user
+                # naturally thinks about "records 2 to 5"). Empty start → 1;
+                # empty end → last record. A bare number → just that record.
+                # (This portion of code was generated utilizing Claude Opus 4.7)
+                _r = rec_range.replace(':', '-')
+                if '-' in _r:
+                    _start_str, _end_str = _r.split('-', 1)
+                    _start = int(_start_str) - 1 if _start_str.strip() else 0
+                    _end = int(_end_str) if _end_str.strip() else len(result)
+                    result = result[_start:_end]
                 else:
-                    # Handle Python slice syntax: ":-3", "5:", "2:5", etc.
-                    result = eval(f"result[{rec_range}]")
-            except (ValueError, IndexError, SyntaxError):
+                    _n = int(_r)
+                    result = result[_n - 1:_n]
+            except (ValueError, IndexError):
                 print(f"WARNING: Could not parse range '{rec_range}'. Processing all records.")
             print(f"Processing {len(result)} records.")
 
