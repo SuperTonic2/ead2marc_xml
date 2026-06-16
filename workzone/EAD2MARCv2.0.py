@@ -147,6 +147,15 @@ def isbd_authority_comma(authority_str, has_relator_following):
         )
     return authority_str
 
+# Used by 5XX/351 note functions to clean up the case where EAD provides a <head>
+# element followed by note content starting with separator punctuation (": ", "-- ",
+# ", ", etc.). Removing just the head text leaves the separator behind, which would
+# leak into MARC output as e.g. "<subfield code='a'>: My content</subfield>".
+# (This portion of code was generated utilizing Claude Opus 4.7)
+def strip_head_and_separator(text, head):
+    """Removes a head label from text and strips leading separator punctuation/whitespace."""
+    return re.sub(r'^[\s:;,.\-–—]+', '', text.replace(head, ""))
+
 # Fetches authority MARCXML from loc.gov and strips the marcxml: namespace prefix
 # that id.loc.gov uses (e.g. <marcxml:datafield>). The script's downstream cleanup
 # regex was written for the lccn.loc.gov format which used unprefixed elements
@@ -281,7 +290,7 @@ def ead2marc_022(unitid_raw):
 
 
 def ead2marc_023(unitid_raw):
-    '''Creates 023 (standard film number) from unitid element'''
+    '''Creates 023 (Cluster ISSN) from unitid element'''
 
     # INDICATORS
     # Indicator 1
@@ -1901,7 +1910,8 @@ def ead2marc_264(raw):
                 date_clean = f"{fromdate_clean}-{todate_clean}"
             else:
                 date_clean = unitdate.xpath("string()").strip()
-                date_clean = html.escape(date_clean)
+            # (This portion of code was generated utilizing Claude Opus 4.7)
+            date_clean = html.escape(date_clean)
 
             c_264 = f"""<subfield code="c">{qualifier_open}{date_clean}{qualifier_close}</subfield>"""
 
@@ -1999,7 +2009,7 @@ def ead2marc_300(raw):
         # PRINT 300 FIELD
         field_300_open = """<datafield tag="300" ind1=" " ind2=" ">"""
         a_300 = c0_raw.attrib['level']
-        field_300_str_nb = field_300_open + "1 " + a_300 + "</datafield>"
+        field_300_str_nb = field_300_open + f"""<subfield code="a">1 {a_300}</subfield>""" + "</datafield>"
         field_300_xml = etree.fromstring(field_300_str_nb)
         field_300_xml_list.append(field_300_xml)
 
@@ -2184,7 +2194,7 @@ def ead2marc_337(raw):
         b_337 = f"""<subfield code="b">{mtype_code}</subfield>"""
 
         # Subfield 2
-        sf2_337 = """<subfield code="2">rdacontent</subfield>"""
+        sf2_337 = """<subfield code="2">rdamedia</subfield>"""
 
         # PRINT 337 FIELD
         field_337_op = """<datafield tag="337" ind1=" " ind2=" ">"""
@@ -2304,7 +2314,7 @@ def ead2marc_338(raw):
         b_338 = f"""<subfield code="b">{crtype_code}</subfield>"""
 
         # Subfield 2
-        sf2_338 = """<subfield code="2">rdacontent</subfield>"""
+        sf2_338 = """<subfield code="2">rdacarrier</subfield>"""
 
         # PRINT 338 FIELD
         field_338_op = """<datafield tag="338" ind1=" " ind2=" ">"""
@@ -2335,7 +2345,7 @@ def ead2marc_351(raw):
             arrnote_head_list = arrnote.xpath(".//*[local-name()='head']")
             if arrnote_head_list:
                 arrnote_head = arrnote_head_list[0].xpath("string()").strip(".")
-                arrnote_clean = arrnote_clean.replace(arrnote_head, "")
+                arrnote_clean = strip_head_and_separator(arrnote_clean, arrnote_head)
             # (This portion of code was generated utilizing Claude Opus 4.6)
             arrnote_clean = " ".join(arrnote_clean.split())
             arrnote_clean = html.escape(arrnote_clean)
@@ -2397,7 +2407,7 @@ def ead2marc_500(raw):
             gnote_head_list = gnote.xpath(".//*[local-name()='head']")
             if gnote_head_list:
                 gnote_head = gnote_head_list[0].xpath("string()").strip(".")
-                gnote_clean = gnote_clean.replace(gnote_head, "")
+                gnote_clean = strip_head_and_separator(gnote_clean, gnote_head)
             # (This portion of code was generated utilizing Claude Opus 4.6)
             gnote_clean = " ".join(gnote_clean.split())
             gnote_clean = html.escape(gnote_clean)
@@ -2429,7 +2439,7 @@ def ead2marc_506(raw):
             ranote_head_list = ranote.xpath(".//*[local-name()='head']")
             if ranote_head_list:
                 ranote_head = ranote_head_list[0].xpath("string()").strip(".")
-                ranote_clean = ranote_clean.replace(ranote_head, "")
+                ranote_clean = strip_head_and_separator(ranote_clean, ranote_head)
             # (This portion of code was generated utilizing Claude Opus 4.6)
             ranote_clean = " ".join(ranote_clean.split())
             ranote_clean = html.escape(ranote_clean)
@@ -2476,7 +2486,7 @@ def ead2marc_520(raw):
             snote_head_list = snote.xpath(".//*[local-name()='head']")
             if snote_head_list:
                 snote_head = snote_head_list[0].xpath("string()").strip(".")
-                snote_clean = snote_clean.replace(snote_head, "")
+                snote_clean = strip_head_and_separator(snote_clean, snote_head)
             # (This portion of code was generated utilizing Claude Opus 4.6)
             snote_clean = " ".join(snote_clean.split())
             snote_clean = html.escape(snote_clean)
@@ -2510,7 +2520,7 @@ def ead2marc_524(raw):
             prefercite_head_list = prefercite_raw.xpath(".//*[local-name()='head']")
             if prefercite_head_list:
                 prefercite_head = prefercite_head_list[0].xpath("string()").strip(".")
-                prefercite_clean = prefercite_clean.replace(prefercite_head, "")
+                prefercite_clean = strip_head_and_separator(prefercite_clean, prefercite_head)
             # (This portion of code was generated utilizing Claude Opus 4.6)
             prefercite_clean = " ".join(prefercite_clean.split())
             prefercite_clean = html.escape(prefercite_clean)
@@ -2552,7 +2562,7 @@ def ead2marc_535(raw):
             ldnote_head_list = ldnote.xpath(".//*[local-name()='head']")
             if ldnote_head_list:
                 ldnote_head = ldnote_head_list[0].xpath("string()").strip(".")
-                ldnote_clean = ldnote_clean.replace(ldnote_head, "")
+                ldnote_clean = strip_head_and_separator(ldnote_clean, ldnote_head)
             # (This portion of code was generated utilizing Claude Opus 4.6)
             ldnote_clean = " ".join(ldnote_clean.split())
             ldnote_clean = html.escape(ldnote_clean)
@@ -2586,7 +2596,7 @@ def ead2marc_540(raw):
             tgurnote_head_list = tgurnote.xpath(".//*[local-name()='head']")
             if tgurnote_head_list:
                 tgurnote_head = tgurnote_head_list[0].xpath("string()").strip(".")
-                tgurnote_clean = tgurnote_clean.replace(tgurnote_head, "")
+                tgurnote_clean = strip_head_and_separator(tgurnote_clean, tgurnote_head)
             # (This portion of code was generated utilizing Claude Opus 4.6)
             tgurnote_clean = " ".join(tgurnote_clean.split())
             tgurnote_clean = html.escape(tgurnote_clean)
@@ -2628,7 +2638,7 @@ def ead2marc_541(raw):
             acqnote_head_list = acqnote.xpath(".//*[local-name()='head']")
             if acqnote_head_list:
                 acqnote_head = acqnote_head_list[0].xpath("string()").strip(".")
-                acqnote_clean = acqnote_clean.replace(acqnote_head, "")
+                acqnote_clean = strip_head_and_separator(acqnote_clean, acqnote_head)
             # (This portion of code was generated utilizing Claude Opus 4.6)
             acqnote_clean = " ".join(acqnote_clean.split())
             acqnote_clean = html.escape(acqnote_clean)
@@ -2662,7 +2672,7 @@ def ead2marc_544(raw):
             loamnote_head_list = loamnote.xpath(".//*[local-name()='head']")
             if loamnote_head_list:
                 loamnote_head = loamnote_head_list[0].xpath("string()").strip(".")
-                loamnote_clean = loamnote_clean.replace(loamnote_head, "")
+                loamnote_clean = strip_head_and_separator(loamnote_clean, loamnote_head)
             # (This portion of code was generated utilizing Claude Opus 4.6)
             loamnote_clean = " ".join(loamnote_clean.split())
             loamnote_clean = html.escape(loamnote_clean)
@@ -2696,7 +2706,7 @@ def ead2marc_545(raw):
             bhnote_head_list = bhnote.xpath(".//*[local-name()='head']")
             if bhnote_head_list:
                 bhnote_head = bhnote_head_list[0].xpath("string()").strip(".")
-                bhnote_clean = bhnote_clean.replace(bhnote_head, "")
+                bhnote_clean = strip_head_and_separator(bhnote_clean, bhnote_head)
             # (This portion of code was generated utilizing Claude Opus 4.6)
             bhnote_clean = " ".join(bhnote_clean.split())
             bhnote_clean = html.escape(bhnote_clean)
@@ -2735,7 +2745,7 @@ def ead2marc_546(raw):
                 langnote_head_list = langnote_raw.xpath(".//*[local-name()='head']")
                 if langnote_head_list:
                     langnote_head = langnote_head_list[0].xpath("string()").strip(".")
-                    langnote_clean = langnote_clean.replace(langnote_head, "")
+                    langnote_clean = strip_head_and_separator(langnote_clean, langnote_head)
                 # (This portion of code was generated utilizing Claude Opus 4.6)
                 langnote_clean = " ".join(langnote_clean.split())
                 langnote_clean = html.escape(langnote_clean)
@@ -2752,9 +2762,21 @@ def ead2marc_546(raw):
                     language_clean_list.append(language_clean)
                     languages = (", ").join(language_clean_list)
                     a_546 = f"""<subfield code="a">{isbd_terminal_period(languages)}</subfield>"""
+            elif langmaterial_raw.xpath(".//*[local-name()='language']"):
+                # Handle simple form — <language> directly inside <langmaterial>
+                # (e.g., <langmaterial><language langcode="eng">English</language></langmaterial>)
+                # Common in item-level ASpace exports where languageset is omitted.
+                # (This portion of code was generated utilizing Claude Opus 4.7)
+                language_clean_list = []
+                for language_raw in langmaterial_raw.xpath(".//*[local-name()='language']"):
+                    language_clean = language_raw.xpath("string()").strip(".")
+                    language_clean = html.escape(language_clean)
+                    language_clean_list.append(language_clean)
+                languages = ", ".join(language_clean_list)
+                a_546 = f"""<subfield code="a">{isbd_terminal_period(languages)}</subfield>"""
             else:
-                # No descriptivenote and no languageset — skip this langmaterial to avoid
-                # building a 546 with no $a. (Was crashing UnboundLocalError before this guard.)
+                # No descriptivenote, no languageset, and no direct <language> children —
+                # skip this langmaterial to avoid building a 546 with no $a.
                 # (This portion of code was generated utilizing Claude Opus 4.7)
                 continue
 
@@ -2828,7 +2850,7 @@ def ead2marc_561(raw):
             chnote_head_list = chnote.xpath(".//*[local-name()='head']")
             if chnote_head_list:
                 chnote_head = chnote_head_list[0].xpath("string()").strip(".")
-                chnote_clean = chnote_clean.replace(chnote_head, "")
+                chnote_clean = strip_head_and_separator(chnote_clean, chnote_head)
             # (This portion of code was generated utilizing Claude Opus 4.6)
             chnote_clean = " ".join(chnote_clean.split())
             chnote_clean = html.escape(chnote_clean)
@@ -2870,7 +2892,7 @@ def ead2marc_583(raw):
             aprnote_head_list = aprnote.xpath(".//*[local-name()='head']")
             if aprnote_head_list:
                 aprnote_head = aprnote_head_list[0].xpath("string()").strip(".")
-                aprnote_clean = aprnote_clean.replace(aprnote_head, "")
+                aprnote_clean = strip_head_and_separator(aprnote_clean, aprnote_head)
             # (This portion of code was generated utilizing Claude Opus 4.6)
             aprnote_clean = " ".join(aprnote_clean.split())
             aprnote_clean = html.escape(aprnote_clean)
@@ -2904,7 +2926,7 @@ def ead2marc_584(raw):
             afunote_head_list = afunote.xpath(".//*[local-name()='head']")
             if afunote_head_list:
                 afunote_head = afunote_head_list[0].xpath("string()").strip(".")
-                afunote_clean = afunote_clean.replace(afunote_head, "")
+                afunote_clean = strip_head_and_separator(afunote_clean, afunote_head)
             # (This portion of code was generated utilizing Claude Opus 4.6)
             afunote_clean = " ".join(afunote_clean.split())
             afunote_clean = html.escape(afunote_clean)
@@ -5211,7 +5233,7 @@ def ead2marc_008(raw):
 
     # Build field 008
     field_008_content = f"{p0to5}{p6}{p7to10}{p11to14}{p15to17}{p18to34}{p35to37}{p38}{p39}"
-    field_008_nb = f"""<controlfield>{field_008_content}</controlfield>"""
+    field_008_nb = f"""<controlfield tag="008">{field_008_content}</controlfield>"""
     field_008_xml = etree.fromstring(field_008_nb)
     field_008_xml_list.append(field_008_xml)
 
@@ -5414,7 +5436,7 @@ if 'http://ead3.archivists.org/schema/' in root.tag:
             vaid_head_list = vaid_raw.xpath(".//*[local-name()='head']")
             if vaid_head_list:
                 vaid_head = vaid_head_list[0].xpath("string()").strip(".")
-                vaid_clean = vaid_clean.replace(vaid_head, "")
+                vaid_clean = strip_head_and_separator(vaid_clean, vaid_head)
             vaid_clean = html.escape(vaid_clean)
 
         # Set global names lists

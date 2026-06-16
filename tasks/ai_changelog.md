@@ -1,5 +1,67 @@
 # Major Claude Edits
 
+## 2026-06-16: v2.0.py — MARCXML Schema-Validity Fixes Surfaced by XML Linter
+
+XML-linting the `collectiontest_20260616_0533.xml` output from yesterday's full MC122 run (against the MARC21slim.xsd schema) surfaced two schema-validity bugs in the script. Both produced output that was parseable by lenient tools but technically non-compliant with the MARCXML schema, and both would be flagged by strict ingest pipelines or validators (MARCEdit, Alma's MARCXML validator, etc.).
+
+### Bug 1: `<marc:controlfield>` missing required `tag` attribute (every record)
+
+**What was done:** The XML linter flagged every `<marc:controlfield>` element with `cvc-required-attribute: Attribute 'tag' must appear on element 'marc:controlfield'`. In the user's 736-successfully-converted-records output file, this was 736 occurrences — every record's 008 field.
+
+**Root cause:** In `ead2marc_008` at line 5214, the 008 field was being constructed with:
+
+```python
+field_008_nb = f"""<controlfield>{field_008_content}</controlfield>"""
+```
+
+— missing the `tag="008"` attribute. The MARCXML schema requires the `tag` attribute on every `<controlfield>` element so downstream tools can identify which control field it is by something other than position-in-document.
+
+Worth noting: the user's question framed this as "the leader" because both the leader and 008 appear as similar-looking elements near the top of every record. The fix here is for the 008; the `<marc:leader>` is its own distinct element type with no `tag` attribute (correctly emitted by the script).
+
+**Fix:** Added `tag="008"` to the f-string at line 5214:
+
+```python
+field_008_nb = f"""<controlfield tag="008">{field_008_content}</controlfield>"""
+```
+
+**Functions affected:** `ead2marc_008`.
+
+### Bug 2: `<marc:datafield tag="300">` with raw text content instead of `<subfield>` child (no-physdesc fallback)
+
+**What was done:** The XML linter flagged 119 records' 300 datafields with `cvc-complex-type.2.4.b: Child elements are missing from element 'marc:datafield'. Expected: subfield`. The flagged output looked like:
+
+```xml
+<marc:datafield tag="300" ind1=" " ind2=" ">1 item</marc:datafield>
+```
+
+— text content directly inside the datafield, not wrapped in a `<subfield>` element.
+
+**Root cause:** `ead2marc_300` has a fallback branch for records that have no `<physdesc>` and no `<physdescstructured>` elements in the EAD source. The fallback builds a stub 300 from the record's `level` attribute. The original code at line 2002 was:
+
+```python
+field_300_str_nb = field_300_open + "1 " + a_300 + "</datafield>"
+```
+
+— concatenating raw text directly between the datafield open/close tags. MARC21slim.xsd requires `<datafield>` to contain at least one `<subfield>` child.
+
+119 of the 736 successfully-converted records (~16%) hit this fallback path — i.e., 16% of MC122 items had no physical description data in their EAD source.
+
+**Fix:** Wrapped the text content in a `<subfield code="a">` element:
+
+```python
+field_300_str_nb = field_300_open + f"""<subfield code="a">1 {a_300}</subfield>""" + "</datafield>"
+```
+
+**Functions affected:** `ead2marc_300` (no-physdesc fallback branch only — the primary physdesc/physdescstructured paths were already correctly emitting subfields).
+
+### Existing-file remediation
+
+For the already-on-disk `collectiontest_20260616_0533.xml`, the user manually applied a find-and-replace for Bug 1 (`<marc:controlfield>` → `<marc:controlfield tag="008">`). For Bug 2, a Python regex replace was scripted (119 datafield text-content blocks wrapped in subfield). Future conversions need no remediation — the source-level fixes are in place.
+
+**Verified:** Bundle rebuilt cleanly after each fix (+12 bytes for Bug 1, +34 bytes for Bug 2 — both match the scope of the literal characters added). Re-linting the patched output file should now show zero schema violations for these two categories.
+
+---
+
 ## 2026-06-16: v2.0.py — Two Bugs Surfaced by Full MC122 Browser Run
 
 Two distinct bugs surfaced by a full-collection browser run on `MC122_ead3_ASv3.5.1.xml` (802 records) using Firefox. 66 records failed — 65 from Bug A, 1 from Bug B.

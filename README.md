@@ -25,6 +25,107 @@ The first run will take a moment while your browser downloads Pyodide (the in-br
 
 `id.loc.gov` is the only external service the tool calls. No metadata or finding-aid content is sent anywhere else.
 
+## Fields produced
+
+The converter generates the following MARC fields when the EAD3 source contains the data to populate them. Subfield lists show what the script emits via its manual-construction path; authority-fetched headings (LCNAF/LCSH/LCGFT lookups) may carry additional subfields beyond those listed when the authority record contains them.
+
+### Leader and control fields
+
+| Element | OCLC Bibformats name |
+| --- | --- |
+| Leader | Leader (all 24 positions populated; no subfields) |
+| 008 | Fixed-Length Data Elements (all 40 positions populated; creation dates only — see Limitations) |
+
+### Numbers and codes (0XX)
+
+| Tag | Subfields | OCLC Bibformats name |
+| --- | --- | --- |
+| 020 | $a | International Standard Book Number |
+| 022 | $a | International Standard Serial Number |
+| 023 | $a | Cluster ISSN |
+| 024 | $a, $2 | Other Standard Identifier |
+| 026 | $e | Fingerprint Identifier |
+| 027 | $a | Standard Technical Report Number |
+| 028 | $a | Publisher or Distributor Number |
+| 035 | $a | System Control Number (collection-level only) |
+| 040 | $a, $b, $c, $e | Cataloging Source |
+| 041 | $a, $2 | Language Code |
+| 049 | $a | Local Holdings |
+| 050 | $a, $b | Library of Congress Call Number |
+| 082 | $a, $b | Dewey Decimal Classification Number |
+| 086 | $a | Government Document Classification Number |
+
+### Main entries (1XX)
+
+| Tag | Subfields | OCLC Bibformats name |
+| --- | --- | --- |
+| 100 | $a, $d, $e (+ authority-fetched) | Main Entry — Personal Name |
+| 110 | $a, $e (+ authority-fetched) | Main Entry — Corporate Name |
+
+### Title and date (2XX)
+
+| Tag | Subfields | OCLC Bibformats name |
+| --- | --- | --- |
+| 245 | $a | Title Statement |
+| 246 | $a | Varying Form of Title |
+| 264 | $c | Production, Publication, Distribution, Manufacture, and Copyright Notice (multiple instances with different indicator 2 values per source) |
+
+### Physical description and content (3XX)
+
+| Tag | Subfields | OCLC Bibformats name |
+| --- | --- | --- |
+| 300 | $a, $c, $f | Physical Description (IUL ordering — see Limitations) |
+| 336 | $a, $b, $2 | Content Type |
+| 337 | $a, $b, $2 | Media Type |
+| 338 | $a, $b, $2 | Carrier Type |
+| 351 | $a | Organization and Arrangement of Materials |
+
+### Notes (5XX)
+
+| Tag | Subfields | OCLC Bibformats name |
+| --- | --- | --- |
+| 500 | $a | General Note (built from `<odd>`, `<dimensions>`, `<physdesc>`, `<materialspec>`, `<physloc>`, `<phystech>`, `<physfacet>`, `<processinfo>`, `<separatedmaterial>`) |
+| 506 | $a | Restrictions on Access Note |
+| 520 | $a | Summary, Etc. |
+| 524 | $a | Preferred Citation of Described Materials Note |
+| 535 | $a | Location of Originals/Duplicates Note |
+| 540 | $a | Terms Governing Use and Reproduction Note |
+| 541 | $a | Immediate Source of Acquisition Note |
+| 544 | $n | Location of Other Archival Materials Note |
+| 545 | $a | Biographical or Historical Data |
+| 546 | $a | Language Note |
+| 555 | $a, $u | Cumulative Index/Finding Aids Note |
+| 561 | $a | Ownership and Custodial History |
+| 583 | $a | Action Note |
+| 584 | $a | Accumulation and Frequency of Use Note |
+
+### Subject access (6XX)
+
+| Tag | Subfields | OCLC Bibformats name |
+| --- | --- | --- |
+| 600 | $a, $d, $e, $2 (+ authority-fetched) | Subject Added Entry — Personal Name |
+| 610 | $a, $e, $2 (+ authority-fetched) | Subject Added Entry — Corporate Name |
+| 630 | $a, $2, $v/$x/$y/$z (+ authority-fetched) | Subject Added Entry — Uniform Title |
+| 650 | $a, $2, $v/$x/$y/$z (+ authority-fetched) | Subject Added Entry — Topical Term |
+| 651 | $a, $2, $v/$x/$y/$z (+ authority-fetched) | Subject Added Entry — Geographic Name |
+| 655 | $a, $2, $v/$x/$y/$z (+ authority-fetched) | Index Term — Genre/Form |
+| 656 | $a, $2 | Index Term — Occupation |
+| 657 | $a, $2 | Index Term — Function |
+| 690 | $a, $2, $5 | Local Subject Added Entry — Topical Term |
+
+### Added entries (7XX)
+
+| Tag | Subfields | OCLC Bibformats name |
+| --- | --- | --- |
+| 700 | $a, $d, $e (+ authority-fetched) | Added Entry — Personal Name |
+| 710 | $a, $e (+ authority-fetched) | Added Entry — Corporate Name |
+
+### Electronic location (8XX)
+
+| Tag | Subfields | OCLC Bibformats name |
+| --- | --- | --- |
+| 856 | $3, $u | Electronic Location and Access (finding aid URL) |
+
 ## Does the conversion process involve AI or Large Language Models (LLMs)?
 
 **No.** The actual conversion process does not utilize any AI agents or LLMs. It is run through a Python script. When you use the tool, no AI is invoked. Your EAD file and the resulting MARCXML stay between your browser and id.loc.gov. No finding-aid content is sent to OpenAI, Anthropic, or any other AI service.
