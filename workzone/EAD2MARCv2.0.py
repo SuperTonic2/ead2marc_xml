@@ -56,7 +56,7 @@ from lxml import etree
 from datetime import datetime
 from pathlib import Path
 
-# !!! Replace C:\path\to\your\ead3.xml with your filepath !!!
+# IF RUNNING IN TERMINAL Replace C:\path\to\your\ead3.xml with your filepath
 INPUT_FILE = r"C:\path\to\your\ead3.xml"
 
 # Toggle for VIAF fallback lookups. 
@@ -156,6 +156,26 @@ def strip_head_and_separator(text, head):
     """Removes a head label from text and strips leading separator punctuation/whitespace."""
     return re.sub(r'^[\s:;,.\-–—]+', '', text.replace(head, ""))
 
+# Standard xpath("string()") joins all descendant text with no separator, so
+# EAD content like <p>...</p><p>...</p> becomes one mashed-together string —
+# e.g. "End of sentence one.Start of sentence two." with no space. This helper
+# walks the element in document order and inserts a space at each <p> boundary
+# (after the first), so paragraph breaks survive as readable whitespace.
+# Pairs with the downstream " ".join(text.split()) calls in the 5XX/351 note
+# functions: that step collapses any runs of whitespace into single spaces.
+# (This portion of code was generated utilizing Claude Opus 4.7)
+def text_with_paragraph_breaks(elem):
+    """Returns concatenated text content with spaces preserved between <p> elements."""
+    parts = []
+    for node in elem.iter():
+        if etree.QName(node).localname == 'p' and parts:
+            parts.append(' ')
+        if node.text:
+            parts.append(node.text)
+        if node is not elem and node.tail:
+            parts.append(node.tail)
+    return ''.join(parts)
+
 # Fetches authority MARCXML from loc.gov and strips the marcxml: namespace prefix
 # that id.loc.gov uses (e.g. <marcxml:datafield>). The script's downstream cleanup
 # regex was written for the lccn.loc.gov format which used unprefixed elements
@@ -170,9 +190,14 @@ def loc_fetch_authority_xml(url, timeout=10):
 
 marc_rda_relators = {
 # Creates dictionary of relator codes common to MARC and RDA
+# (Expanded 2026-06-18 to cover collection-management and music-specific
+# codes that appear in MC122 source data but were previously absent. See
+# id.loc.gov/vocabulary/relators for the canonical LC term list.)
+# (This portion of code was generated utilizing Claude Opus 4.7)
     "ape": "appellee",
     "apl": "appellant",
     "arc": "architect",
+    "arr": "arranger",
     "art": "artist",
     "aup": "audio producer",
     "aus": "screenwriter",
@@ -182,26 +207,38 @@ marc_rda_relators = {
     "chr": "choreographer",
     "cll": "calligrapher",
     "cmp": "composer",
+    "cnd": "conductor",
+    "col": "collector",
     "com": "compiler",
     "cou": "court governed",
+    "cov": "cover designer",
     "csl": "consultant",
+    "ctb": "contributor",
     "ctg": "cartographer",
     "dfd": "defendant",
     "dgc": "degree committee member",
     "dgg": "degree granting institution",
     "dgs": "degree supervisor",
+    "dnc": "dancer",
+    "dnr": "donor",
+    "dpc": "depicted",
     "drt": "director",
     "dsr": "designer",
     "dte": "dedicatee",
     "dto": "dedicator",
     "edd": "editorial director",
+    "edt": "editor",
+    "egr": "engraver",
     "enj": "enacting jurisdiction",
     "fmd": "film director",
     "fmk": "filmmaker",
+    "fmo": "former owner",
     "fmp": "film producer",
     "his": "host institution",
+    "ill": "illustrator",
     "inv": "inventor",
     "isb": "issuing body",
+    "itr": "instrumentalist",
     "ive": "interviewee",
     "ivr": "interviewer",
     "jud": "judge",
@@ -209,8 +246,11 @@ marc_rda_relators = {
     "lbt": "librettist",
     "lsa": "landscape architect",
     "lyr": "lyricist",
+    "mcp": "music copyist",
     "med": "medium",
+    "nrt": "narrator",
     "orm": "organizer",
+    "pbl": "publisher",
     "pht": "photographer",
     "pra": "praeses",
     "prf": "performer",
@@ -226,8 +266,14 @@ marc_rda_relators = {
     "rsp": "respondent",
     "rxa": "remix artist",
     "scl": "sculptor",
+    "sng": "singer",
+    "spn": "sponsor",
     "tld": "television director",
     "tlp": "television producer",
+    "trc": "transcriber",
+    "trl": "translator",
+    "wam": "writer of accompanying material",
+    "wpr": "writer of preface",
     }
 
 
@@ -1774,8 +1820,13 @@ def ead2marc_245(raw):
     level = raw.attrib['level']
     field_245_xml_list = []
     # INDICATORS
-    # Indicator 1 is constant (1)
-    # Indicator 2 is constant (0)
+    # Indicator 1: "1" if a 100/110 main entry will be present (i.e., the record
+    # has a creator-labeled origination, which becomes the main entry, so the
+    # title needs its own added entry), otherwise "0" (no main entry; the title
+    # IS the main entry and doesn't need a separate added entry).
+    # Indicator 2 is constant (0) — no nonfiling characters
+    # (This portion of code was generated utilizing Claude Opus 4.7)
+    ind1_245 = "1" if creator_names_list else "0"
 
     # Subfield A
     # (This portion of code was revised utilizing ChatGPT-5)
@@ -1795,7 +1846,7 @@ def ead2marc_245(raw):
     a_245 = f"""<subfield code="a">{title_for_245}</subfield>"""
 
     # PRINT 245 FIELD
-    field_245_str_nb = """<datafield tag="245" ind1="1" ind2="0">""" + a_245 + "</datafield>"
+    field_245_str_nb = f"""<datafield tag="245" ind1="{ind1_245}" ind2="0">""" + a_245 + "</datafield>"
     field_245_xml = etree.fromstring(field_245_str_nb)
     field_245_xml_list.append(field_245_xml)
 
@@ -2090,12 +2141,29 @@ def ead2marc_336(raw):
         if physdesc.tag.endswith('physdesc') and not physdesc.tag.endswith('physdescstructured'):
             physdesc_clean = html.escape(physdesc.xpath("string()").strip())
             crtype_keycheck_list.append(physdesc_clean)
-        crtype_keycheck_list.append(subj_gft_list)
+    # Also use <genreform> texts from <controlaccess> as content-type hints.
+    # subj_gft_list is the per-record global of genreform elements populated
+    # by the convert loop; we extract their string content so substring matching
+    # against the map keys can find content types implied by the genre/form
+    # (e.g., "Scores" → matches "score" key → "notated music").
+    # (This portion of code was generated utilizing Claude Opus 4.7)
+    for gft_elem in subj_gft_list:
+        gft_text = gft_elem.xpath("string()").strip()
+        if gft_text:
+            crtype_keycheck_list.append(gft_text)
+    # Match each search target against the content-type map. Case-insensitive
+    # substring match so collection-level "Boxes"/"CD(s)" match map keys
+    # "box"/"cd". Dedup by output value (not key) so multiple sources mapping
+    # to the same type (e.g., "folder" and "leaves" both → "text") don't
+    # produce duplicate 336s.
+    # (This portion of code was generated utilizing Claude Opus 4.7)
     for search_target in crtype_keycheck_list:
+        target_lower = search_target.casefold()
         for key in unittype_336_map:
-            if key.casefold() in search_target:
-                if key not in ctype_list:
-                    ctype_list.append(unittype_336_map[key])
+            if key.casefold() in target_lower:
+                ctype_value = unittype_336_map[key]
+                if ctype_value not in ctype_list:
+                    ctype_list.append(ctype_value)
     for ctype in ctype_list:
         ctype_code = ctype_code_dict[ctype]
         ctype_code_list.append(ctype_code)
@@ -2170,15 +2238,22 @@ def ead2marc_337(raw):
     field_337_xml_list = []
     all_physdesc_list = raw.xpath(".//*[starts-with(local-name(), 'physdesc')]")
 
+    # (This portion of code was generated utilizing Claude Opus 4.7)
+    # Get unittype from the CURRENT physdesc (was previously reading the first
+    # unittype globally, so multiple physdescs all processed the same value).
     for physdesc in all_physdesc_list:
-        if physdesc.xpath(".//*[local-name()='unittype']"):
-            unittype_raw = raw.xpath(".//*[local-name()='unittype']")[0]
-            unittype_clean = html.escape(unittype_raw.xpath("string()").strip())
+        unittype_children = physdesc.xpath(".//*[local-name()='unittype']")
+        if unittype_children:
+            unittype_clean = html.escape(unittype_children[0].xpath("string()").strip())
             unittype_list.append(unittype_clean)
+    # Case-insensitive substring match + dedup (same rationale as the 336 fix).
     for unittype in unittype_list:
+        unittype_lower = unittype.casefold()
         for key in unittype_337_map:
-            if key in unittype:
-                mtype_list.append(unittype_337_map[key])
+            if key in unittype_lower:
+                mtype_value = unittype_337_map[key]
+                if mtype_value not in mtype_list:
+                    mtype_list.append(mtype_value)
     for mtype in mtype_list:
         mtype_code = mtype_code_list[mtype]
 
@@ -2290,15 +2365,22 @@ def ead2marc_338(raw):
     field_338_xml_list = []
     all_physdesc_list = raw.xpath(".//*[starts-with(local-name(), 'physdesc')]")
 
+    # (This portion of code was generated utilizing Claude Opus 4.7)
+    # Get unittype from the CURRENT physdesc (was previously reading the first
+    # unittype globally, so multiple physdescs all processed the same value).
     for physdesc in all_physdesc_list:
-        if physdesc.xpath(".//*[local-name()='unittype']"):
-            unittype_raw = raw.xpath(".//*[local-name()='unittype']")[0]
-            unittype_clean = html.escape(unittype_raw.xpath("string()").strip())
+        unittype_children = physdesc.xpath(".//*[local-name()='unittype']")
+        if unittype_children:
+            unittype_clean = html.escape(unittype_children[0].xpath("string()").strip())
             unittype_list.append(unittype_clean)
+    # Case-insensitive substring match + dedup (same rationale as the 336 fix).
     for unittype in unittype_list:
+        unittype_lower = unittype.casefold()
         for key in unittype_338_map:
-            if key in unittype:
-                crtype_list.append(unittype_338_map[key])
+            if key in unittype_lower:
+                crtype_value = unittype_338_map[key]
+                if crtype_value not in crtype_list:
+                    crtype_list.append(crtype_value)
     for crtype in crtype_list:
         crtype_code = crtype_code_list[crtype]
 
@@ -2341,7 +2423,7 @@ def ead2marc_351(raw):
             # Subfield A
             # Strips heads from notes if there are any
             # (This portion of code was troubleshot utilizing Claude Opus 4.7)
-            arrnote_clean = arrnote.xpath("string()").strip(".")
+            arrnote_clean = text_with_paragraph_breaks(arrnote).strip(".")
             arrnote_head_list = arrnote.xpath(".//*[local-name()='head']")
             if arrnote_head_list:
                 arrnote_head = arrnote_head_list[0].xpath("string()").strip(".")
@@ -2349,7 +2431,8 @@ def ead2marc_351(raw):
             # (This portion of code was generated utilizing Claude Opus 4.6)
             arrnote_clean = " ".join(arrnote_clean.split())
             arrnote_clean = html.escape(arrnote_clean)
-            a_351 = f"""<subfield code="a">{arrnote_clean}</subfield>"""
+            # (This portion of code was generated utilizing Claude Opus 4.7)
+            a_351 = f"""<subfield code="a">{isbd_terminal_period(arrnote_clean)}</subfield>"""
 
             # PRINT 351 FIELD
             # (This portion of code was troubleshot utilizing Claude Opus 4.7)
@@ -2402,7 +2485,7 @@ def ead2marc_500(raw):
                 a_pref = gnote_pref[gnote_type]
             else:
                 a_pref = ""
-            gnote_clean = gnote.xpath("string()").strip(".")
+            gnote_clean = text_with_paragraph_breaks(gnote).strip(".")
 
             gnote_head_list = gnote.xpath(".//*[local-name()='head']")
             if gnote_head_list:
@@ -2435,7 +2518,7 @@ def ead2marc_506(raw):
 
             # SUBFIELDS
             # Subfield A
-            ranote_clean = ranote.xpath("string()").strip(".")
+            ranote_clean = text_with_paragraph_breaks(ranote).strip(".")
             ranote_head_list = ranote.xpath(".//*[local-name()='head']")
             if ranote_head_list:
                 ranote_head = ranote_head_list[0].xpath("string()").strip(".")
@@ -2482,7 +2565,7 @@ def ead2marc_520(raw):
             # SUBFIELDS
             # Subfield A
             # Strips heads from notes if there are any
-            snote_clean = snote.xpath("string()").strip(".")
+            snote_clean = text_with_paragraph_breaks(snote).strip(".")
             snote_head_list = snote.xpath(".//*[local-name()='head']")
             if snote_head_list:
                 snote_head = snote_head_list[0].xpath("string()").strip(".")
@@ -2516,7 +2599,7 @@ def ead2marc_524(raw):
 
             # SUBFIELDS
             # Subfield A
-            prefercite_clean = prefercite_raw.xpath("string()").strip(".")
+            prefercite_clean = text_with_paragraph_breaks(prefercite_raw).strip(".")
             prefercite_head_list = prefercite_raw.xpath(".//*[local-name()='head']")
             if prefercite_head_list:
                 prefercite_head = prefercite_head_list[0].xpath("string()").strip(".")
@@ -2558,7 +2641,7 @@ def ead2marc_535(raw):
 
             # SUBFIELDS
             # Subfield A
-            ldnote_clean = ldnote.xpath("string()").strip(".")
+            ldnote_clean = text_with_paragraph_breaks(ldnote).strip(".")
             ldnote_head_list = ldnote.xpath(".//*[local-name()='head']")
             if ldnote_head_list:
                 ldnote_head = ldnote_head_list[0].xpath("string()").strip(".")
@@ -2592,7 +2675,7 @@ def ead2marc_540(raw):
 
             # SUBFIELDS
             # Subfield A
-            tgurnote_clean = tgurnote.xpath("string()").strip(".")
+            tgurnote_clean = text_with_paragraph_breaks(tgurnote).strip(".")
             tgurnote_head_list = tgurnote.xpath(".//*[local-name()='head']")
             if tgurnote_head_list:
                 tgurnote_head = tgurnote_head_list[0].xpath("string()").strip(".")
@@ -2634,7 +2717,7 @@ def ead2marc_541(raw):
 
             # SUBFIELDS
             # Subfield A
-            acqnote_clean = acqnote.xpath("string()").strip(".")
+            acqnote_clean = text_with_paragraph_breaks(acqnote).strip(".")
             acqnote_head_list = acqnote.xpath(".//*[local-name()='head']")
             if acqnote_head_list:
                 acqnote_head = acqnote_head_list[0].xpath("string()").strip(".")
@@ -2668,7 +2751,7 @@ def ead2marc_544(raw):
 
             # SUBFIELDS
             # Subfield N
-            loamnote_clean = loamnote.xpath("string()").strip(".")
+            loamnote_clean = text_with_paragraph_breaks(loamnote).strip(".")
             loamnote_head_list = loamnote.xpath(".//*[local-name()='head']")
             if loamnote_head_list:
                 loamnote_head = loamnote_head_list[0].xpath("string()").strip(".")
@@ -2702,7 +2785,7 @@ def ead2marc_545(raw):
 
             # SUBFIELDS
             # Subfield A
-            bhnote_clean = bhnote.xpath("string()").strip(".")
+            bhnote_clean = text_with_paragraph_breaks(bhnote).strip(".")
             bhnote_head_list = bhnote.xpath(".//*[local-name()='head']")
             if bhnote_head_list:
                 bhnote_head = bhnote_head_list[0].xpath("string()").strip(".")
@@ -2741,7 +2824,7 @@ def ead2marc_546(raw):
                 # Uses descriptive language note if one exists
                 # Subfield A
                 langnote_raw = langnote_fetch[0]
-                langnote_clean = langnote_raw.xpath("string()").strip(".")
+                langnote_clean = text_with_paragraph_breaks(langnote_raw).strip(".")
                 langnote_head_list = langnote_raw.xpath(".//*[local-name()='head']")
                 if langnote_head_list:
                     langnote_head = langnote_head_list[0].xpath("string()").strip(".")
@@ -2846,7 +2929,7 @@ def ead2marc_561(raw):
 
             # SUBFIELDS
             # Subfield A
-            chnote_clean = chnote.xpath("string()").strip(".")
+            chnote_clean = text_with_paragraph_breaks(chnote).strip(".")
             chnote_head_list = chnote.xpath(".//*[local-name()='head']")
             if chnote_head_list:
                 chnote_head = chnote_head_list[0].xpath("string()").strip(".")
@@ -2888,7 +2971,7 @@ def ead2marc_583(raw):
 
             # SUBFIELDS
             # Subfield A
-            aprnote_clean = aprnote.xpath("string()").strip(".")
+            aprnote_clean = text_with_paragraph_breaks(aprnote).strip(".")
             aprnote_head_list = aprnote.xpath(".//*[local-name()='head']")
             if aprnote_head_list:
                 aprnote_head = aprnote_head_list[0].xpath("string()").strip(".")
@@ -2922,7 +3005,7 @@ def ead2marc_584(raw):
 
             # SUBFIELDS
             # Subfield A
-            afunote_clean = afunote.xpath("string()").strip(".")
+            afunote_clean = text_with_paragraph_breaks(afunote).strip(".")
             afunote_head_list = afunote.xpath(".//*[local-name()='head']")
             if afunote_head_list:
                 afunote_head = afunote_head_list[0].xpath("string()").strip(".")
@@ -3013,10 +3096,18 @@ def ead2marc_600(name):
             authority_600_str_list_stripped = [str.strip() for str in authority_600_str_list]
             authority_600_str = "".join(authority_600_str_list_stripped)
             authority_600_str = re.sub(r'</datafield>', '', authority_600_str).strip()
-            # Change tag from 100 to 600
-            # (This portion of code was generated utilizing Claude Opus 4.5)
-            authority_600_str = authority_600_str.replace('tag="100"', 'tag="600"')
-            # (This portion of code was generated utilizing Claude Opus 4.6)
+            # Change tag from 100 to 600 and force ind2="0" (LCSH conventions
+            # apply for LCNAF-aligned personal names). Preserves ind1 since it
+            # carries meaning for personal names (0 forename / 1 surname / 3 family).
+            # (This portion of code was generated utilizing Claude Opus 4.7)
+            authority_600_str = re.sub(
+                r'tag="100"(\s+ind1="[^"]*")\s+ind2="[^"]*"',
+                r'tag="600"\1 ind2="0"',
+                authority_600_str
+            )
+            # 110 fallback: routes to 710 added entry instead (corporate fallback
+            # when EAD said persname but LCNAF returned a corporate authority).
+            # No ind2 forcing needed — 710 uses blank ind2 conventionally.
             authority_600_str = authority_600_str.replace('tag="110"', 'tag="710"')
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError, IndexError):
             print(f"WARNING: Connection to id.loc.gov timed out for {authfile_no}. Constructing field manually.")
@@ -3054,9 +3145,15 @@ def ead2marc_600(name):
                 authority_600_str_list_stripped = [str.strip() for str in authority_600_str_list]
                 authority_600_str = "".join(authority_600_str_list_stripped)
                 authority_600_str = re.sub(r'</datafield>', '', authority_600_str).strip()
-                # Change tag from 100 to 600
-                authority_600_str = authority_600_str.replace('tag="100"', 'tag="600"')
-                # (This portion of code was generated utilizing Claude Opus 4.6)
+                # Change tag from 100 to 600 and force ind2="0" (same fix as the
+                # direct-LCNAF path above; the VIAF cluster's linked LC authority
+                # returns the same LCNAF format).
+                # (This portion of code was generated utilizing Claude Opus 4.7)
+                authority_600_str = re.sub(
+                    r'tag="100"(\s+ind1="[^"]*")\s+ind2="[^"]*"',
+                    r'tag="600"\1 ind2="0"',
+                    authority_600_str
+                )
                 authority_600_str = authority_600_str.replace('tag="110"', 'tag="710"')
             except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError, IndexError):
                 print(f"WARNING: Connection to id.loc.gov timed out for {lc_id}. Constructing field manually.")
@@ -3125,20 +3222,25 @@ def ead2marc_600(name):
     else:
         ind1_600 = ""
 
-    # Indicator 2
-    if authority == "lcsh":
+    # Indicator 2 — uses the original EAD source attribute (the `authority`
+    # variable can be reset to None earlier in the function after a failed
+    # authority fetch, which would have caused LCNAF names to fall through
+    # to ind2="4" "source not specified" rather than ind2="0" "LCSH").
+    # (This portion of code was generated utilizing Claude Opus 4.7)
+    ead_source = (name.get("source") or "").lower()
+    if ead_source in ("lcsh", "lcnaf", "naf"):
         ind2_600 = "0"
-    elif authority == "cyac":
+    elif ead_source == "lcac":
         ind2_600 = "1"
-    elif authority == "mesh":
+    elif ead_source == "mesh":
         ind2_600 = "2"
-    elif authority == "nal":
+    elif ead_source == "nal":
         ind2_600 = "3"
-    elif authority in ("", None, "source not specified"):
+    elif ead_source in ("", "source not specified"):
         ind2_600 = "4"
-    elif authority == "cash":
+    elif ead_source == "cash":
         ind2_600 = "5"
-    elif authority == "rvm":
+    elif ead_source == "rvm":
         ind2_600 = "6"
     else:
         ind2_600 = "7"
@@ -3280,9 +3382,15 @@ def ead2marc_610(name):
             authority_610_str_list_stripped = [str.strip() for str in authority_610_str_list]
             authority_610_str = "".join(authority_610_str_list_stripped)
             authority_610_str = re.sub(r'</datafield>', '', authority_610_str).strip()
-            # Change tag from 110 to 610
-            # (This portion of code was generated utilizing Claude Opus 4.5)
-            authority_610_str = authority_610_str.replace('tag="110"', 'tag="610"')
+            # Change tag from 110 to 610 and force ind2="0" (LCSH conventions
+            # apply for LCNAF-aligned corporate names). Preserves ind1 since it
+            # carries meaning for corporate names (0 inverted / 1 jurisdiction / 2 direct).
+            # (This portion of code was generated utilizing Claude Opus 4.7)
+            authority_610_str = re.sub(
+                r'tag="110"(\s+ind1="[^"]*")\s+ind2="[^"]*"',
+                r'tag="610"\1 ind2="0"',
+                authority_610_str
+            )
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError, IndexError):
             print(f"WARNING: Connection to id.loc.gov timed out for {authfile_no}. Constructing field manually.")
             authority = None
@@ -3315,9 +3423,15 @@ def ead2marc_610(name):
                 authority_610_str_list_stripped = [str.strip() for str in authority_610_str_list]
                 authority_610_str = "".join(authority_610_str_list_stripped)
                 authority_610_str = re.sub(r'</datafield>', '', authority_610_str).strip()
-                # Change tag from 110 to 610
-                # (This portion of code was generated utilizing Claude Opus 4.5)
-                authority_610_str = authority_610_str.replace('tag="110"', 'tag="610"')
+                # Change tag from 110 to 610 and force ind2="0" (same fix as the
+                # direct-LCNAF path above; the VIAF cluster's linked LC authority
+                # returns the same LCNAF format).
+                # (This portion of code was generated utilizing Claude Opus 4.7)
+                authority_610_str = re.sub(
+                    r'tag="110"(\s+ind1="[^"]*")\s+ind2="[^"]*"',
+                    r'tag="610"\1 ind2="0"',
+                    authority_610_str
+                )
             except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, etree.XMLSyntaxError, IndexError):
                 print(f"WARNING: Connection to id.loc.gov timed out for {lc_id}. Constructing field manually.")
                 authority = None
@@ -3347,20 +3461,25 @@ def ead2marc_610(name):
     else:
         ind1_610 = ""
 
-    # Indicator 2
-    if authority == "lcsh":
+    # Indicator 2 — uses the original EAD source attribute (the `authority`
+    # variable can be reset to None earlier in the function after a failed
+    # authority fetch, which would have caused LCNAF names to fall through
+    # to ind2="4" "source not specified" rather than ind2="0" "LCSH").
+    # (This portion of code was generated utilizing Claude Opus 4.7)
+    ead_source = (name.get("source") or "").lower()
+    if ead_source in ("lcsh", "lcnaf", "naf"):
         ind2_610 = "0"
-    elif authority == "cyac":
+    elif ead_source == "lcac":
         ind2_610 = "1"
-    elif authority == "mesh":
+    elif ead_source == "mesh":
         ind2_610 = "2"
-    elif authority == "nal":
+    elif ead_source == "nal":
         ind2_610 = "3"
-    elif authority in ("", None, "source not specified"):
+    elif ead_source in ("", "source not specified"):
         ind2_610 = "4"
-    elif authority == "cash":
+    elif ead_source == "cash":
         ind2_610 = "5"
-    elif authority == "rvm":
+    elif ead_source == "rvm":
         ind2_610 = "6"
     else:
         ind2_610 = "7"
@@ -3505,13 +3624,26 @@ def ead2marc_630(title):
                         subdiv_auth_xml = loc_fetch_authority_xml(subdiv_auth_url)
                         subdiv_auth_root = etree.fromstring(subdiv_auth_xml)
                         if subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='185']"):
-                            subdiv_code = "v"  # form subdivision
+                            subdiv_code = "v"  # form subdivision (explicit authority)
                         elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='181']"):
-                            subdiv_code = "z"  # geographic subdivision
+                            subdiv_code = "z"  # geographic subdivision (explicit authority)
                         elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='182']"):
-                            subdiv_code = "y"  # chronological subdivision
+                            subdiv_code = "y"  # chronological subdivision (explicit authority)
                         elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='180']"):
-                            subdiv_code = "x"  # general subdivision
+                            subdiv_code = "x"  # general subdivision (explicit authority)
+                        # Fallback: infer subdivision type from main-heading authority
+                        # tag when no explicit subdivision authority record exists.
+                        # Common for geographic names like "Israel" that only have a
+                        # 151 record (geographic name) not a separate 181 (geographic
+                        # subdivision). Without this fallback the classifier defaulted
+                        # to $x, producing "Music $x Israel" instead of "Music $z Israel".
+                        # (This portion of code was generated utilizing Claude Opus 4.7)
+                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='151']"):
+                            subdiv_code = "z"  # geographic name used as subdivision
+                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='155']"):
+                            subdiv_code = "v"  # genre/form term used as subdivision
+                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='148']"):
+                            subdiv_code = "y"  # chronological term used as subdivision
                         break
                 subdiv_subfields += f"""<subfield code="{subdiv_code}">{subdiv}</subfield>"""
             authority_630_str += subdiv_subfields
@@ -3525,22 +3657,25 @@ def ead2marc_630(title):
         # Compile field manually if no lcsh match
         # INDICATORS
         # Indicator 1 is constant (0)
-        # Indicator 2
-        if authority == "lcsh":
+        # Indicator 2 — uses original EAD source attribute. Treats lcnaf/naf as
+        # ind2="0" (LCSH conventions) since LCNAF uniform-title headings follow
+        # LC heading format. Most MC122-style EADs use source="lcnaf" for uniform
+        # titles, which previously fell through to ind2="7".
+        # (This portion of code was generated utilizing Claude Opus 4.7)
+        ead_source = (title.get("source") or "").lower()
+        if ead_source in ("lcsh", "lcnaf", "naf"):
             ind2_630 = "0"
-        elif authority == "cyac":
+        elif ead_source == "lcac":
             ind2_630 = "1"
-        elif authority == "mesh":
+        elif ead_source == "mesh":
             ind2_630 = "2"
-        elif authority == "nal":
+        elif ead_source == "nal":
             ind2_630 = "3"
-        elif authority == "":
+        elif ead_source in ("", "source not specified"):
             ind2_630 = "4"
-        elif authority == "source not specified":
-            ind2_630 = "4"
-        elif authority == "cash":
+        elif ead_source == "cash":
             ind2_630 = "5"
-        elif authority == "rvm":
+        elif ead_source == "rvm":
             ind2_630 = "6"
         else:
             ind2_630 = "7"
@@ -3662,13 +3797,26 @@ def ead2marc_650(sh):
                         subdiv_auth_xml = loc_fetch_authority_xml(subdiv_auth_url)
                         subdiv_auth_root = etree.fromstring(subdiv_auth_xml)
                         if subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='185']"):
-                            subdiv_code = "v"  # form subdivision
+                            subdiv_code = "v"  # form subdivision (explicit authority)
                         elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='181']"):
-                            subdiv_code = "z"  # geographic subdivision
+                            subdiv_code = "z"  # geographic subdivision (explicit authority)
                         elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='182']"):
-                            subdiv_code = "y"  # chronological subdivision
+                            subdiv_code = "y"  # chronological subdivision (explicit authority)
                         elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='180']"):
-                            subdiv_code = "x"  # general subdivision
+                            subdiv_code = "x"  # general subdivision (explicit authority)
+                        # Fallback: infer subdivision type from main-heading authority
+                        # tag when no explicit subdivision authority record exists.
+                        # Common for geographic names like "Israel" that only have a
+                        # 151 record (geographic name) not a separate 181 (geographic
+                        # subdivision). Without this fallback the classifier defaulted
+                        # to $x, producing "Music $x Israel" instead of "Music $z Israel".
+                        # (This portion of code was generated utilizing Claude Opus 4.7)
+                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='151']"):
+                            subdiv_code = "z"  # geographic name used as subdivision
+                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='155']"):
+                            subdiv_code = "v"  # genre/form term used as subdivision
+                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='148']"):
+                            subdiv_code = "y"  # chronological term used as subdivision
                         break
                 subdiv_subfields += f"""<subfield code="{subdiv_code}">{subdiv}</subfield>"""
             authority_650_str += subdiv_subfields
@@ -3819,13 +3967,26 @@ def ead2marc_651(geo):
                         subdiv_auth_xml = loc_fetch_authority_xml(subdiv_auth_url)
                         subdiv_auth_root = etree.fromstring(subdiv_auth_xml)
                         if subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='185']"):
-                            subdiv_code = "v"  # form subdivision
+                            subdiv_code = "v"  # form subdivision (explicit authority)
                         elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='181']"):
-                            subdiv_code = "z"  # geographic subdivision
+                            subdiv_code = "z"  # geographic subdivision (explicit authority)
                         elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='182']"):
-                            subdiv_code = "y"  # chronological subdivision
+                            subdiv_code = "y"  # chronological subdivision (explicit authority)
                         elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='180']"):
-                            subdiv_code = "x"  # general subdivision
+                            subdiv_code = "x"  # general subdivision (explicit authority)
+                        # Fallback: infer subdivision type from main-heading authority
+                        # tag when no explicit subdivision authority record exists.
+                        # Common for geographic names like "Israel" that only have a
+                        # 151 record (geographic name) not a separate 181 (geographic
+                        # subdivision). Without this fallback the classifier defaulted
+                        # to $x, producing "Music $x Israel" instead of "Music $z Israel".
+                        # (This portion of code was generated utilizing Claude Opus 4.7)
+                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='151']"):
+                            subdiv_code = "z"  # geographic name used as subdivision
+                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='155']"):
+                            subdiv_code = "v"  # genre/form term used as subdivision
+                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='148']"):
+                            subdiv_code = "y"  # chronological term used as subdivision
                         break
                 subdiv_subfields += f"""<subfield code="{subdiv_code}">{subdiv}</subfield>"""
             authority_651_str += subdiv_subfields
@@ -3839,22 +4000,24 @@ def ead2marc_651(geo):
         # Compile field manually if no lcsh match
         # INDICATORS
         # Indicator 1 is constant (blank)
-        # Indicator 2
-        if authority == "lcsh":
+        # Indicator 2 — uses original EAD source attribute. Treats lcnaf/naf as
+        # ind2="0" (LCSH conventions) since geographic names from LCNAF use the
+        # same heading format as LCSH.
+        # (This portion of code was generated utilizing Claude Opus 4.7)
+        ead_source = (geo.get("source") or "").lower()
+        if ead_source in ("lcsh", "lcnaf", "naf"):
             ind2_651 = "0"
-        elif authority == "cyac":
+        elif ead_source == "lcac":
             ind2_651 = "1"
-        elif authority == "mesh":
+        elif ead_source == "mesh":
             ind2_651 = "2"
-        elif authority == "nal":
+        elif ead_source == "nal":
             ind2_651 = "3"
-        elif authority == "":
+        elif ead_source in ("", "source not specified"):
             ind2_651 = "4"
-        elif authority == "source not specified":
-            ind2_651 = "4"
-        elif authority == "cash":
+        elif ead_source == "cash":
             ind2_651 = "5"
-        elif authority == "rvm":
+        elif ead_source == "rvm":
             ind2_651 = "6"
         else:
             ind2_651 = "7"
@@ -3991,13 +4154,26 @@ def ead2marc_655(gf):
                         subdiv_auth_xml = loc_fetch_authority_xml(subdiv_auth_url)
                         subdiv_auth_root = etree.fromstring(subdiv_auth_xml)
                         if subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='185']"):
-                            subdiv_code = "v"  # form subdivision
+                            subdiv_code = "v"  # form subdivision (explicit authority)
                         elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='181']"):
-                            subdiv_code = "z"  # geographic subdivision
+                            subdiv_code = "z"  # geographic subdivision (explicit authority)
                         elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='182']"):
-                            subdiv_code = "y"  # chronological subdivision
+                            subdiv_code = "y"  # chronological subdivision (explicit authority)
                         elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='180']"):
-                            subdiv_code = "x"  # general subdivision
+                            subdiv_code = "x"  # general subdivision (explicit authority)
+                        # Fallback: infer subdivision type from main-heading authority
+                        # tag when no explicit subdivision authority record exists.
+                        # Common for geographic names like "Israel" that only have a
+                        # 151 record (geographic name) not a separate 181 (geographic
+                        # subdivision). Without this fallback the classifier defaulted
+                        # to $x, producing "Music $x Israel" instead of "Music $z Israel".
+                        # (This portion of code was generated utilizing Claude Opus 4.7)
+                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='151']"):
+                            subdiv_code = "z"  # geographic name used as subdivision
+                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='155']"):
+                            subdiv_code = "v"  # genre/form term used as subdivision
+                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='148']"):
+                            subdiv_code = "y"  # chronological term used as subdivision
                         break
                 subdiv_subfields += f"""<subfield code="{subdiv_code}">{subdiv}</subfield>"""
             authority_655_str += subdiv_subfields
@@ -4652,30 +4828,42 @@ def ead2marc_710(name):
 
 
 def ead2marc_700_710(names_list):
-    '''Routes added entry names to ead2marc_700 or ead2marc_710 based on name type'''
+    '''Routes added entry names to ead2marc_700 or ead2marc_710 based on name type.
 
-    # Set function-wide variables
-    other_names_ead = names_list[1:]
+    Processes:
+    - Creators after the first (the first creator becomes 100/110 main entry)
+    - All sources (donors, collectors, etc. from <origination label="source">) —
+      sources are never main entries, so all of them become 7XX added entries
+    '''
 
-    if len(other_names_ead) > 0:
-        field_700_710_xml_list = []
-        for target_name_ead in other_names_ead:
-            # Extract actual name element and send to 700 or 710 functions
-            # (This portion of code was generated utilizing Claude Opus 4.5)
-            if target_name_ead in creator_persnames_list:
-                name_element = target_name_ead.xpath(".//*[local-name()='persname']")[0]
-                field_700_xml = ead2marc_700(name_element)
-                field_700_710_xml_list.extend(field_700_xml)
-            elif target_name_ead in creator_famnames_list:
-                name_element = target_name_ead.xpath(".//*[local-name()='famname']")[0]
-                field_700_xml = ead2marc_700(name_element)
-                field_700_710_xml_list.extend(field_700_xml)
-            elif target_name_ead in creator_corpnames_list:
-                name_element = target_name_ead.xpath(".//*[local-name()='corpname']")[0]
-                field_710_xml = ead2marc_710(name_element)
-                field_700_710_xml_list.extend(field_710_xml)
+    # (This portion of code was generated utilizing Claude Opus 4.7)
+    other_creators = list(names_list[1:])
+    all_added_names = other_creators + list(source_names_list)
 
-        return field_700_710_xml_list
+    if not all_added_names:
+        return None
+
+    field_700_710_xml_list = []
+    for target_name_ead in all_added_names:
+        # Extract actual name element and send to 700 or 710 functions
+        # (This portion of code was generated utilizing Claude Opus 4.5)
+        if (target_name_ead in creator_persnames_list
+                or target_name_ead in source_persnames_list):
+            name_element = target_name_ead.xpath(".//*[local-name()='persname']")[0]
+            field_700_xml = ead2marc_700(name_element)
+            field_700_710_xml_list.extend(field_700_xml)
+        elif (target_name_ead in creator_famnames_list
+                or target_name_ead in source_famnames_list):
+            name_element = target_name_ead.xpath(".//*[local-name()='famname']")[0]
+            field_700_xml = ead2marc_700(name_element)
+            field_700_710_xml_list.extend(field_700_xml)
+        elif (target_name_ead in creator_corpnames_list
+                or target_name_ead in source_corpnames_list):
+            name_element = target_name_ead.xpath(".//*[local-name()='corpname']")[0]
+            field_710_xml = ead2marc_710(name_element)
+            field_700_710_xml_list.extend(field_710_xml)
+
+    return field_700_710_xml_list
 
 
 def ead2marc_856(raw):
@@ -4697,8 +4885,15 @@ def ead2marc_856(raw):
         else:
             cid_clean = ""
 
-        # (This portion of code was troubleshot utilizing Claude Opus 4.7)
-        faid_uri = f"""https://archives.iu.edu/catalog/{vaid_clean}_{cid_clean}"""
+        # The IUL archives URL pattern is `{vaid}_{aspace_id}` for item-level
+        # records and just `{vaid}` for collection-level (no aspace_id available).
+        # Previously emitted a trailing-underscore URL like `.../VAE4896_` at
+        # collection level, which 404s.
+        # (This portion of code was generated utilizing Claude Opus 4.7)
+        if cid_clean:
+            faid_uri = f"""https://archives.iu.edu/catalog/{vaid_clean}_{cid_clean}"""
+        else:
+            faid_uri = f"""https://archives.iu.edu/catalog/{vaid_clean}"""
         u_856 = f"""<subfield code="u">{faid_uri}</subfield>"""
 
         # Subfield 3

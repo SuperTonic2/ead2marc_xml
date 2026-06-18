@@ -1,5 +1,248 @@
 # Major Claude Edits
 
+## 2026-06-18: v2.0.py — Collection-Level Audit Follow-Up Fixes
+
+After the morning's 1XX/6XX/7XX indicator and routing fixes (see the next entry below), a closer pass through the MC122 collection-level export surfaced an additional eight issues spanning URL construction, vocabulary gaps, text processing, indicator logic, terminal punctuation, content-type detection, and subdivision classification. Seven are fixed in this entry; #7 (three separate 300 fields rather than one combined) is a deliberate non-change per the user's preference.
+
+The audit and fixes were taken in the user's preferred priority order: #1, #2, #3, #4, #5, #8, then back to #6 once #8's groundwork was in place.
+
+### Issue #1: 856 URL had a dangling trailing underscore at collection level
+
+**What was done:** The collection-level 856 emitted `<subfield code="u">https://archives.iu.edu/catalog/VAE4896_</subfield>` — broken link (404s on click).
+
+**Root cause:** `ead2marc_856` at line 4754 always concatenated the aspace component ID via `f"{vaid_clean}_{cid_clean}"`. For collection-level records, `cid_clean` is empty (no aspace component to refer to), so the URL ended with the bare separator underscore.
+
+**Fix:** Made the join conditional — only insert `_{cid_clean}` when `cid_clean` is non-empty. Collection-level URLs now end at `VAE4896` cleanly. Item-level URLs are unchanged.
+
+**Functions affected:** `ead2marc_856`.
+
+### Issue #2: 22 relator codes missing from `marc_rda_relators` dict
+
+**What was done:** Tischler 600 (and the new 700 entries from yesterday's source-routing fix) lacked `$e collector` even though the EAD source had `relator="col"`. A grep across MC122's EAD source revealed 22 distinct relator codes used in the data that the dict didn't recognize, so 750+ name entries in the collection's records were emitting without `$e` subfields.
+
+**Root cause:** The dict was incomplete. It covered common roles (composer, performer, librettist) but missed many music-cataloging and collection-management roles.
+
+**Fix:** Added 22 codes, sorted alphabetically into the existing dict, with terms from the LC RDA relator vocabulary (id.loc.gov/vocabulary/relators):
+
+- **Collection management:** col (collector), dnr (donor), fmo (former owner)
+- **Music-specific:** cnd (conductor), itr (instrumentalist), arr (arranger), sng (singer), mcp (music copyist)
+- **Editorial/authorial:** edt (editor), trl (translator), pbl (publisher), nrt (narrator), ctb (contributor), trc (transcriber), wam (writer of accompanying material), wpr (writer of preface)
+- **Visual/depicted:** dpc (depicted), cov (cover designer), ill (illustrator), egr (engraver)
+- **Performance/other:** dnc (dancer), spn (sponsor)
+
+A header comment documents the expansion rationale.
+
+**Functions affected:** All 10 name-emitting functions (100, 110, 600, 610, 700, 710 — both authority-fetched and manual paths) that consult `marc_rda_relators` for `$e` content.
+
+### Issue #3: HTML `<p>` stripping joined paragraphs without separators
+
+**What was done:** The 545 biographical note in the Tischler output had `"Austrian Musicological Society.In Bloomington"` — paragraph break collapsed to no separator. The EAD source correctly had `</p><p>In Bloomington` with proper structure. Same issue would manifest in any multi-paragraph 5XX/351 note.
+
+**Root cause:** `xpath("string()")` concatenates all descendant text nodes with no separator. So `<p>foo</p><p>bar</p>` becomes `"foobar"` rather than `"foo bar"`. The 14 note-extraction sites across the 5XX/351 functions all relied on this behavior.
+
+**Fix:** Added a new helper `text_with_paragraph_breaks(elem)` near the existing `strip_head_and_separator`/`isbd_terminal_period` helpers. It walks the element via `.iter()` in document order and inserts a space at each `<p>` boundary (except the first). The downstream `" ".join(text.split())` calls in each function then collapse any whitespace runs to single spaces, so the result is clean.
+
+Applied the new helper to 14 sites via a batch Python script (one-pass replace across the file):
+
+`ead2marc_351`, `ead2marc_500`, `ead2marc_506`, `ead2marc_520`, `ead2marc_524`, `ead2marc_535`, `ead2marc_540`, `ead2marc_541`, `ead2marc_544`, `ead2marc_545`, `ead2marc_546`, `ead2marc_561`, `ead2marc_583`, `ead2marc_584`.
+
+**Open follow-up:** the helper only handles `<p>` boundaries — `<list>`, `<item>`, tables, and other block-level EAD elements still concatenate without separator. Rare in archival notes but possible. Easy to extend if any of those structures appear in future test data.
+
+**Functions affected:** 14 (listed above).
+
+### Issue #4: 245 `ind1` always emitted as "1" regardless of main-entry presence
+
+**What was done:** The Tischler collection-level 245 had `ind1="1"` ("title added entry needed") but the record had no 100/110 main entry — just 600s and 690. With no main entry, the title IS the main entry and shouldn't request a separate added entry. The correct value is `ind1="0"` for those cases.
+
+**Root cause:** `ead2marc_245` at line 1844 hardcoded `ind1="1"` in the datafield string.
+
+**Fix:** Made the indicator conditional on the per-record global `creator_names_list`:
+
+```python
+ind1_245 = "1" if creator_names_list else "0"
+```
+
+Collection-level records with no creator → `ind1="0"`. Item-level records with a creator → `ind1="1"` (unchanged behavior). Records with only source-labeled originations (donors/collectors, routed to 7XX by yesterday's fix) also correctly get `ind1="0"` because the title is still the de facto main entry.
+
+**Functions affected:** `ead2marc_245`.
+
+### Issue #5: 351 (arrangement) missing terminal period
+
+**What was done:** The Tischler 351 ended without a period: `"...III. PERSONAL EFFECTS"`. The 5XX note functions consistently apply `isbd_terminal_period()` to their content, but `ead2marc_351` didn't.
+
+**Root cause:** Oversight when 351 was added — used the same head-stripping and whitespace logic as 5XX notes but skipped the ISBD terminal-period helper.
+
+**Fix:** One-line addition wrapping `arrnote_clean` in `isbd_terminal_period()`. Pattern matches what all the 5XX functions do.
+
+**Functions affected:** `ead2marc_351`.
+
+### Issue #6: Subdivision classifier missed main-heading-tag authorities
+
+**What was done:** The Tischler 650 `Music — Israel` emitted as `<subfield code="x">Israel</subfield>` (general subdivision) when the correct MARC mapping for a geographic name used as a subdivision is `<subfield code="z">`. Same problem would apply to genre/form terms and chronological terms when LCSH only has them as main-heading authorities, not as explicit subdivision authorities.
+
+**Root cause:** The subdivision classifier in `ead2marc_630`, `ead2marc_650`, `ead2marc_651`, and `ead2marc_655` only checked LC authority tags 180/181/182/185 (the explicit "free-floating subdivision" record types). LCSH doesn't always publish those records — for established geographic names like "Israel", the only authority record is the main-heading 151. With no explicit subdivision authority record found, the classifier fell through to its `$x` default, producing `Music $x Israel`.
+
+**Fix:** Added fallback checks for the main-heading authority tags as elif branches after the explicit-subdivision checks:
+
+```python
+elif tag '151':  subdiv_code = "z"  # geographic name → geographic subdivision
+elif tag '155':  subdiv_code = "v"  # genre/form term → form subdivision
+elif tag '148':  subdiv_code = "y"  # chronological term → chronological subdivision
+# Default $x (covers tag 150 topical term and unmatched authorities)
+```
+
+The mappings are canonical: each authority tag corresponds to exactly one subfield convention (151 → $z, 155 → $v, 148 → $y, 150 → $x). Applied to all 4 functions via `replace_all` since the existing classifier blocks were byte-identical.
+
+Existing comments expanded with "(explicit authority)" markers so future readers can tell at a glance which check is which.
+
+**Functions affected:** `ead2marc_630`, `ead2marc_650`, `ead2marc_651`, `ead2marc_655`.
+
+### Issue #8: 336/337/338 emitted nothing for collection-level records (three compounding bugs)
+
+**What was done:** The Tischler collection-level export had zero 336/337/338 fields despite the EAD source having three `<physdescstructured>` elements with `<unittype>Boxes</unittype>`, `<unittype>CD(s)</unittype>`, and `<unittype>DVD(s)</unittype>` — all of which should produce content/media/carrier-type entries.
+
+**Root cause:** Three separate bugs compounding to produce zero output:
+
+- **Case-sensitive substring match (all three functions):** Map keys are lowercase (`"box"`, `"cd"`, `"dvd"`), unittype values are capitalized (`"Boxes"`, `"CD(s)"`, `"DVD(s)"`). `"box" in "Boxes"` is `False` because Python's `in` is case-sensitive on strings.
+- **337/338 always read the first unittype globally:** Inside the `for physdesc in all_physdesc_list:` loop, both functions did `raw.xpath(...)` (the record root) instead of `physdesc.xpath(...)` (the current iteration's element). So all three iterations processed the same unittype repeatedly.
+- **Broken/missing dedup:** 336 checked `if key not in ctype_list` but `ctype_list` holds output VALUES (not keys), so the dedup never kicked in. 337 and 338 had no dedup at all. Even after fixing the case-sensitivity, the output would have duplicates.
+
+Plus minor: 336 had a dead-code line `crtype_keycheck_list.append(subj_gft_list)` that appended a list of lxml Elements as a single search target — the substring check against an element list always returned False, so it never matched anything.
+
+**Fix:** Rewrote the matching loop in each of the three functions:
+
+- `casefold()` on both sides of the substring check so `"box"` finds `"Boxes"`
+- Replaced the broken dedup with `if X not in list: append` using the output value
+- In 337 and 338, changed `raw.xpath(...)` to `physdesc.xpath(...)` so each iteration reads the current physdesc's unittype
+- Removed the broken `subj_gft_list` append in 336
+
+**Bonus — genreform-based content-type detection in 336:** the original broken `subj_gft_list` append was *trying* to use genreform terms as additional content-type hints. Replaced with a proper loop that extracts text from each genreform element and adds it to the search-target list. Now genreforms like "Scores" (248 occurrences in MC122 items) reliably trigger the "score" → "notated music" mapping even when the unittype doesn't.
+
+**Functions affected:** `ead2marc_336`, `ead2marc_337`, `ead2marc_338`.
+
+### Verification (follow-up fixes)
+
+Bundle rebuilt cleanly across all the fixes (~10 KB net source increase). Next MC122 v3.5.1 run should produce:
+
+- All 856 URLs at collection level: clean `VAE4896` instead of broken `VAE4896_`
+- 750+ name fields will now have `$e` relator subfields where the EAD source provides relator codes
+- All multi-paragraph 5XX/351 notes have readable spacing between paragraphs
+- Collection-level 245 entries get correct `ind1="0"` (item-level still gets `ind1="1"`)
+- All 351 entries terminated with `.`
+- "Music -- Israel" → `$z Israel` (was `$x Israel`); same for other geographic, chronological, and genre/form subdivisions inferred from main-heading authorities
+- Collection-level records get appropriate 336/337/338 entries (Boxes → text + unmediated + object; CD(s) → performed music + audio + audio disc; etc.) with correct dedup
+- Genreform terms contribute to 336 content-type detection
+
+### Not addressed (deliberate)
+
+- **#7 (three separate 300 fields rather than one combined)** — Per user preference: "I feel ok keeping 300 fields separate." The EAD's three `<physdescstructured>` elements faithfully produce three 300 fields; consolidating them is an IUL-policy decision rather than a script bug.
+
+---
+
+## 2026-06-18: v2.0.py — Collection-Level Audit Findings (MC122 Tischler)
+
+A user-driven walkthrough of a collection-level MARCXML export from MC122 v3.5.1 surfaced four distinct issues across the 1XX/6XX/7XX field family. All four are fixed in this entry; one open follow-up is noted at the end.
+
+The Tischler example record was useful because Alice and Hans Tischler appear in **two** EAD locations simultaneously — `<origination label="source">` (as donors/collectors) and `<controlaccess><persname>` (as subject access points). The 600 fields they produced were technically present but had multiple wrong indicators, and the 700 fields they should have also produced were missing entirely. Tracing each problem revealed not just the Tischler-specific surface bugs but several related issues across other fields in the broader 6XX block.
+
+### Issue A: `<origination label="source">` was never routed to 7XX
+
+**What was done:** `ead2marc_700_710` only iterated `creator_names_list` (passed in as `names_list`). Names from `<origination label="source">` populated `source_*_list` globals but those globals were never read. Result: every record with donors, collectors, or other source-labeled originations was missing 7XX added entries.
+
+**Root cause:** When `ead2marc_700_710` was originally written, the script only handled creator-labeled originations. Source-labeled origination data was being captured into globals (the convert_async function publishes them via `setattr(builtins, ...)`) but no code consumed them downstream.
+
+**Fix:** Rewrote `ead2marc_700_710` to combine `names_list[1:]` (creators after the first, which becomes the 100/110 main entry) with the full `source_names_list`. The function now also checks `source_persnames_list`, `source_famnames_list`, and `source_corpnames_list` in its name-type dispatch logic alongside the existing `creator_*` lists. No call-site change needed — the function still takes `names_list` as its parameter (the creators) and reads the source lists from globals the same way it reads creator lists.
+
+**Functions affected:** `ead2marc_700_710`.
+
+### Issue B: 600/610 ind2 was wrong for LCNAF names (two compounding bugs)
+
+**What was done:** Audit of `collectiontest_20260616_0533.xml` (the prior 736-record output) revealed that 137 of 151 of the 600 fields and all 3 of the 610 fields had wrong `ind2` values — either blank or `"4"` (Source not specified) when the EAD source attribute was `"lcnaf"`.
+
+**Root cause:** Two separate bugs compounding:
+
+- **Path A — manual fallback after a failed authority fetch.** When `source="lcnaf"` but no `identifier` attribute was present and the `suggest2` lookup also returned no match, the function reset `authority = None` (lines 3103-3104 and 3340-3341) so that the manual-construction branch could run. This reset destroyed the original LCNAF designation. The downstream `ind2` logic then checked the now-`None` `authority` variable, matched the "source not specified" branch, and emitted `ind2="4"`. 53 records hit this path.
+- **Path B — authority-fetched ind2 carryover from LCNAF record.** When the authority fetch succeeded, the script did `authority_600_str.replace('tag="100"', 'tag="600"')` — changing only the tag and leaving `ind1`/`ind2` from the LCNAF authority record unchanged. LCNAF tag 100 records use `ind2=" "` (blank, which has no defined meaning at the 1XX level). When carried into a 600 context, that blank `ind2` is technically invalid — 600 requires one of `0`–`7`. 71 records hit this path.
+
+**Fix (Path A — 4 edits across 600 and 610):** Replaced the `authority`-variable check in the ind2 logic with a check on `name.get("source")` directly, computed into a new local variable `ead_source`. This way the original EAD source attribute is preserved across any reset:
+
+```python
+ead_source = (name.get("source") or "").lower()
+if ead_source in ("lcsh", "lcnaf", "naf"):
+    ind2_600 = "0"
+elif ead_source == "lcac":
+    ind2_600 = "1"
+...
+```
+
+**Fix (Path B — 4 edits across 600 and 610):** Replaced the simple `.replace('tag="100"', 'tag="600"')` calls with regex that swaps the tag AND forces `ind2="0"` while preserving `ind1` (which has actual meaning for personal/corporate names: 0/1/3 for personal, 0/1/2 for corporate). Applied to the direct-LCNAF path AND the VIAF-cluster-with-LC-link path in both `ead2marc_600` and `ead2marc_610`:
+
+```python
+authority_600_str = re.sub(
+    r'tag="100"(\s+ind1="[^"]*")\s+ind2="[^"]*"',
+    r'tag="600"\1 ind2="0"',
+    authority_600_str
+)
+```
+
+**Functions affected:** `ead2marc_600`, `ead2marc_610`.
+
+### Issue C: 630 manual fallback used `ind2="7"` + wrong `$2` for LCNAF uniform titles
+
+**What was done:** 124 of the 133 630 fields in the prior MC122 output had `ind2="7"` with `$2 lcnaf`. The `$2` value is doubly wrong: (a) `"lcnaf"` is not a registered MARC subject-thesaurus code (the correct shorthand would be `naf`), and (b) the heading form *is* LCSH-conventions-aligned so `ind2="0"` is the correct way to flag it, not `ind2="7"` with any `$2`.
+
+**Root cause:** MC122 catalogers used `source="lcnaf"` (not `source="lcsh"`) for uniform titles in the form "Composer, Year. Title" — which is the standard NAF format for music uniform titles. The script's 630 manual-fallback `ind2` logic had no case for `"lcnaf"`/`"naf"`, so they fell through to the `else: ind2_630 = "7"` branch. The downstream `$2` logic then emitted `"lcnaf"` literally because that's what was in the `authority` variable.
+
+The 630 function's authority-fetch path also only activates for `source="lcsh"` (line 3499) — none of the 123 LCNAF-sourced uniform titles in MC122 even attempted an authority lookup. They all took the manual fallback path.
+
+**Fix:** Added `lcnaf`/`naf` to the `ind2="0"` branch of the manual fallback. Also switched the ind2 logic to use `(title.get("source") or "").lower()` directly for consistency with the 600/610 fix style. After the fix, LCNAF-sourced uniform titles will emit `ind2="0"` with no `$2` (correct).
+
+**Functions affected:** `ead2marc_630`.
+
+### Issue D: 651 manual fallback missing lcnaf/naf cases
+
+**What was done:** Same shape as Issue C but lower impact — only 2 of 10 651 fields in the prior output were affected.
+
+**Root cause:** Identical pattern to 630.
+
+**Fix:** Identical structure to the 630 fix — added `lcnaf`/`naf` to the `ind2="0"` branch and switched to reading `geo.get("source")` directly.
+
+**Functions affected:** `ead2marc_651`.
+
+### Other 6XX fields — audited and confirmed correct
+
+- **650 (Topical)**: 841 of 842 with correct `ind1=" " ind2="0"` via the existing regex fix.
+- **655 (Genre/Form)**: mostly `ind2="7"` with `$2 lcgft` — correct, LCGFT is the standard genre/form `$2` source.
+- **656 (Occupation)**: `ind2="7"` — conventional for locally-constructed occupation terms.
+- **657 (Function)**: `ind2="7"` — same as 656.
+- **690 (Local subject)**: `ind2="7"` with `$2 local` and `$5 Inu-MuID` — correct for local headings.
+
+### Open follow-up: 630 authority lookup doesn't handle `source="lcnaf"`
+
+**What this is:** The `ead2marc_630` authority-lookup path activates only when `title.get("source").lower() in {"lcsh"}` (line 3499). For collections like MC122 where catalogers use `source="lcnaf"` for music uniform titles (123 of 133 in this case), no authority lookup is attempted — the field is built manually from EAD text content. The Issue C fix at least makes the manually-constructed output have correct indicators, but the script is missing the opportunity to fetch actual LCNAF authority data (proper non-filing characters, alternate forms via `$s`, etc.).
+
+**Why this wasn't addressed in this audit:** Extending the lookup to LCNAF for uniform titles is a substantial code change. LCNAF authority records for music uniform titles can appear in several formats:
+
+- `tag="130"` (uniform title alone, e.g., "De profundis (Music)")
+- `tag="100"` with `$t` subfield (name-title heading, e.g., "Alexander, Haim. De profundis")
+- `tag="110"` with `$t` (corporate-name-title)
+
+Pulling the right datafield out of the authority record and reshaping it for 630 is non-trivial. The existing `ead2marc_630` code handles only the `tag="130"` shape.
+
+**When to reopen:** If a future audit shows that the manually-constructed 630s are losing data that LCNAF would provide (e.g., non-filing characters being miscounted, alternate `$s` form headings missing), or if a cataloger explicitly requests authority-record-quality uniform title headings. Not urgent for v2.0 — the headings produced are correct enough to ingest; just not authority-record-rich.
+
+### Verified
+
+Bundle rebuilt cleanly across all the fixes (~3.5 KB net source increase across the seven edits). On the next MC122 v3.5.1 run, expect:
+
+- All 600 entries with `source="lcnaf"` → `ind2="0"` (was 53 with `"4"`, 71 with `" "`)
+- All 610 entries with `source="lcnaf"` → `ind2="0"` (was all 3 wrong)
+- 630 LCNAF uniform titles → `ind2="0"` no `$2` (was `ind2="7"` `$2 lcnaf`)
+- 651 LCNAF-sourced geographic names → `ind2="0"` (was 2 emitting `"7"`)
+- Plus 7XX added entries for every `<origination label="source">` (previously: zero such entries; the Tischlers and similar will now appear in both 600 *and* 700)
+
+---
+
 ## 2026-06-16: v2.0.py — MARCXML Schema-Validity Fixes Surfaced by XML Linter
 
 XML-linting the `collectiontest_20260616_0533.xml` output from yesterday's full MC122 run (against the MARC21slim.xsd schema) surfaced two schema-validity bugs in the script. Both produced output that was parseable by lenient tools but technically non-compliant with the MARCXML schema, and both would be flagged by strict ingest pipelines or validators (MARCEdit, Alma's MARCXML validator, etc.).

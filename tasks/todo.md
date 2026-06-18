@@ -1,8 +1,8 @@
 # Project Tasks
 
 ## Current To-Do's
-  
-- [ ] Check item-level test exports and debug any issues
+
+- [ ] Check collection-level test exports and debug any issues
 - [ ] Run full item-level test export and send to L to review
 - [ ] Write more to-do’s
 
@@ -169,3 +169,4 @@
   - [X] 035 (system control number) is emitted only for collection-level records, not for items
   - [X] If id.loc.gov is unreachable or times out (~10s default), the affected authority field falls back to manually-constructed content from the EAD; a NOTE comment is added to the record so catalogers can spot and review
   - [X] Check with L if 541 needs to be broken down into more subfields (see bibformats)
+  - [X] Check item-level test exports and debug any issues

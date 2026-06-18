@@ -152,6 +152,7 @@ This tool reads **EAD3** only. EAD 2002 (deprecated by SAA in 2014) needs to be 
 - **300 subfield order non-standard.** Order is `a, c, a, f` (instead of MARC-canonical `a, b, c, e, f`) per IUL convention; some strict MARC validators may flag this.
 - **035 collection-level only.** The 035 system control number is emitted for collection-level records, not for items.
 - **HTML markup in notes stripped.** `<strong>`, `<em>`, and similar inline markup inside EAD notes are removed during text extraction; plain text content survives.
+- **`audience="internal"` is not filtered.** ASpace's "internal use only" attribute on access points, notes, and unitids does not suppress those elements from the MARCXML output.
 - **id.loc.gov timeout fallback.** If id.loc.gov is unreachable or slow (default 10-second timeout), the affected field falls back to manually-constructed content and a `<!-- NOTE: ... -->` comment is added to the record so catalogers can spot and review.
 
 ## Running the Python script locally

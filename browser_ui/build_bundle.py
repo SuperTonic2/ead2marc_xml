@@ -24,6 +24,7 @@ Usage:
 The script uses paths relative to its own location, so it works no matter
 where you invoke it from.
 """
+# (All code in this file was generated utilizing Claude Opus 4.7)
 
 import base64
 import sys
@@ -37,7 +38,6 @@ WORKZONE = REPO_ROOT / "workzone"      # converter script lives here
 SCRIPT_PATH = WORKZONE / "EAD2MARCv2.0.py"
 HTML_PICKER_PATH = HERE / "ead2marc_stage2.html"
 HTML_BUNDLED_PATH = HERE / "ead2marc_stage2_bundled.html"
-# (This portion of code was generated utilizing Claude Opus 4.7)
 PAGES_INDEX_PATH = REPO_ROOT / "docs" / "index.html"
 
 # Marker that separates function definitions (above) from top-level execution
@@ -64,7 +64,6 @@ def patch_html(html: str, source_b64: str) -> str:
     """Applies the four bundling substitutions to the picker-version HTML."""
 
     # 0. Inject a "do not edit" banner just after the doctype.
-    # (This portion of code was generated utilizing Claude Opus 4.7)
     generated_banner = (
         "<!--\n"
         "  GENERATED FILE — DO NOT EDIT.\n"
@@ -194,7 +193,6 @@ def main():
     bundled_html = patch_html(picker_html, source_b64)
 
     HTML_BUNDLED_PATH.write_text(bundled_html, encoding="utf-8")
-    # (This portion of code was generated utilizing Claude Opus 4.7)
     PAGES_INDEX_PATH.parent.mkdir(parents=True, exist_ok=True)
     PAGES_INDEX_PATH.write_text(bundled_html, encoding="utf-8")
 
