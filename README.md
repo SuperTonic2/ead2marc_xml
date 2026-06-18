@@ -1,8 +1,8 @@
 # EAD2MARC_XML
 
-Originally built by Sarah Helen Carter for the Indiana University Cook Music Library.
-
 A browser-based tool that converts ArchivesSpace **EAD3** finding aids into **MARCXML** records for use in MARCEdit or ingest.
+
+Originally built by Sarah Helen Carter for the Indiana University Cook Music Library.
 
 ## Quick start
 
