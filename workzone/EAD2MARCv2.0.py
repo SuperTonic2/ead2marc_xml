@@ -3632,39 +3632,46 @@ def ead2marc_630(title):
             subdiv_subfields = ""
             for subdiv in subdivisions:
                 subdiv_code = "x"  # default to general
-                subdiv_suggest_url = f"""https://id.loc.gov/authorities/subjects/suggest2?q={subdiv}"""
-                subdiv_response = loc_get(subdiv_suggest_url)
-                try:
-                    subdiv_data = subdiv_response.json()
-                except requests.exceptions.JSONDecodeError:
-                    subdiv_data = {}
-                for subdiv_hit in subdiv_data.get("hits", []):
-                    if subdiv_hit["aLabel"] == subdiv:
-                        subdiv_token = subdiv_hit["token"]
-                        subdiv_auth_url = lc_authority_url(subdiv_token)
-                        subdiv_auth_xml = loc_fetch_authority_xml(subdiv_auth_url)
-                        subdiv_auth_root = etree.fromstring(subdiv_auth_xml)
-                        if subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='185']"):
-                            subdiv_code = "v"  # form subdivision (explicit authority)
-                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='181']"):
-                            subdiv_code = "z"  # geographic subdivision (explicit authority)
-                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='182']"):
-                            subdiv_code = "y"  # chronological subdivision (explicit authority)
-                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='180']"):
-                            subdiv_code = "x"  # general subdivision (explicit authority)
-                        # Fallback: infer subdivision type from main-heading authority
-                        # tag when no explicit subdivision authority record exists.
-                        # Common for geographic names like "Israel" that only have a
-                        # 151 record (geographic name) not a separate 181 (geographic
-                        # subdivision). Without this fallback the classifier defaulted
-                        # to $x, producing "Music $x Israel" instead of "Music $z Israel".
-                        # (This portion of code was generated utilizing Claude Opus 4.7)
-                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='151']"):
-                            subdiv_code = "z"  # geographic name used as subdivision
-                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='155']"):
-                            subdiv_code = "v"  # genre/form term used as subdivision
-                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='148']"):
-                            subdiv_code = "y"  # chronological term used as subdivision
+                # Try subjects vocabulary first (covers free-floating subdivisions
+                # like "Theory" → 180, "Bibliography" → 185, "20th century" → 182).
+                # Fall back to names vocabulary for geographic names like "Israel",
+                # which LCSH stores in the names file (as 151 records) rather than
+                # as separate 181 subdivision records. Without the names fallback,
+                # geographic subdivisions defaulted to $x because the subjects
+                # suggest2 endpoint returned only "Israel--<more>" prefix-matched
+                # hits, never the bare "Israel" entry needed for the classifier.
+                # (This portion of code was generated utilizing Claude Opus 4.7)
+                subdiv_found = False
+                for vocab in ("subjects", "names"):
+                    subdiv_suggest_url = f"""https://id.loc.gov/authorities/{vocab}/suggest2?q={subdiv}"""
+                    subdiv_response = loc_get(subdiv_suggest_url)
+                    try:
+                        subdiv_data = subdiv_response.json()
+                    except requests.exceptions.JSONDecodeError:
+                        subdiv_data = {}
+                    for subdiv_hit in subdiv_data.get("hits", []):
+                        if subdiv_hit["aLabel"] == subdiv:
+                            subdiv_token = subdiv_hit["token"]
+                            subdiv_auth_url = lc_authority_url(subdiv_token)
+                            subdiv_auth_xml = loc_fetch_authority_xml(subdiv_auth_url)
+                            subdiv_auth_root = etree.fromstring(subdiv_auth_xml)
+                            if subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='185']"):
+                                subdiv_code = "v"  # form subdivision (explicit authority)
+                            elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='181']"):
+                                subdiv_code = "z"  # geographic subdivision (explicit authority)
+                            elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='182']"):
+                                subdiv_code = "y"  # chronological subdivision (explicit authority)
+                            elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='180']"):
+                                subdiv_code = "x"  # general subdivision (explicit authority)
+                            elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='151']"):
+                                subdiv_code = "z"  # geographic name used as subdivision
+                            elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='155']"):
+                                subdiv_code = "v"  # genre/form term used as subdivision
+                            elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='148']"):
+                                subdiv_code = "y"  # chronological term used as subdivision
+                            subdiv_found = True
+                            break
+                    if subdiv_found:
                         break
                 subdiv_subfields += f"""<subfield code="{subdiv_code}">{subdiv}</subfield>"""
             authority_630_str += subdiv_subfields
@@ -3805,39 +3812,46 @@ def ead2marc_650(sh):
             subdiv_subfields = ""
             for subdiv in subdivisions:
                 subdiv_code = "x"  # default to general
-                subdiv_suggest_url = f"""https://id.loc.gov/authorities/subjects/suggest2?q={subdiv}"""
-                subdiv_response = loc_get(subdiv_suggest_url)
-                try:
-                    subdiv_data = subdiv_response.json()
-                except requests.exceptions.JSONDecodeError:
-                    subdiv_data = {}
-                for subdiv_hit in subdiv_data.get("hits", []):
-                    if subdiv_hit["aLabel"] == subdiv:
-                        subdiv_token = subdiv_hit["token"]
-                        subdiv_auth_url = lc_authority_url(subdiv_token)
-                        subdiv_auth_xml = loc_fetch_authority_xml(subdiv_auth_url)
-                        subdiv_auth_root = etree.fromstring(subdiv_auth_xml)
-                        if subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='185']"):
-                            subdiv_code = "v"  # form subdivision (explicit authority)
-                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='181']"):
-                            subdiv_code = "z"  # geographic subdivision (explicit authority)
-                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='182']"):
-                            subdiv_code = "y"  # chronological subdivision (explicit authority)
-                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='180']"):
-                            subdiv_code = "x"  # general subdivision (explicit authority)
-                        # Fallback: infer subdivision type from main-heading authority
-                        # tag when no explicit subdivision authority record exists.
-                        # Common for geographic names like "Israel" that only have a
-                        # 151 record (geographic name) not a separate 181 (geographic
-                        # subdivision). Without this fallback the classifier defaulted
-                        # to $x, producing "Music $x Israel" instead of "Music $z Israel".
-                        # (This portion of code was generated utilizing Claude Opus 4.7)
-                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='151']"):
-                            subdiv_code = "z"  # geographic name used as subdivision
-                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='155']"):
-                            subdiv_code = "v"  # genre/form term used as subdivision
-                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='148']"):
-                            subdiv_code = "y"  # chronological term used as subdivision
+                # Try subjects vocabulary first (covers free-floating subdivisions
+                # like "Theory" → 180, "Bibliography" → 185, "20th century" → 182).
+                # Fall back to names vocabulary for geographic names like "Israel",
+                # which LCSH stores in the names file (as 151 records) rather than
+                # as separate 181 subdivision records. Without the names fallback,
+                # geographic subdivisions defaulted to $x because the subjects
+                # suggest2 endpoint returned only "Israel--<more>" prefix-matched
+                # hits, never the bare "Israel" entry needed for the classifier.
+                # (This portion of code was generated utilizing Claude Opus 4.7)
+                subdiv_found = False
+                for vocab in ("subjects", "names"):
+                    subdiv_suggest_url = f"""https://id.loc.gov/authorities/{vocab}/suggest2?q={subdiv}"""
+                    subdiv_response = loc_get(subdiv_suggest_url)
+                    try:
+                        subdiv_data = subdiv_response.json()
+                    except requests.exceptions.JSONDecodeError:
+                        subdiv_data = {}
+                    for subdiv_hit in subdiv_data.get("hits", []):
+                        if subdiv_hit["aLabel"] == subdiv:
+                            subdiv_token = subdiv_hit["token"]
+                            subdiv_auth_url = lc_authority_url(subdiv_token)
+                            subdiv_auth_xml = loc_fetch_authority_xml(subdiv_auth_url)
+                            subdiv_auth_root = etree.fromstring(subdiv_auth_xml)
+                            if subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='185']"):
+                                subdiv_code = "v"  # form subdivision (explicit authority)
+                            elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='181']"):
+                                subdiv_code = "z"  # geographic subdivision (explicit authority)
+                            elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='182']"):
+                                subdiv_code = "y"  # chronological subdivision (explicit authority)
+                            elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='180']"):
+                                subdiv_code = "x"  # general subdivision (explicit authority)
+                            elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='151']"):
+                                subdiv_code = "z"  # geographic name used as subdivision
+                            elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='155']"):
+                                subdiv_code = "v"  # genre/form term used as subdivision
+                            elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='148']"):
+                                subdiv_code = "y"  # chronological term used as subdivision
+                            subdiv_found = True
+                            break
+                    if subdiv_found:
                         break
                 subdiv_subfields += f"""<subfield code="{subdiv_code}">{subdiv}</subfield>"""
             authority_650_str += subdiv_subfields
@@ -3975,39 +3989,46 @@ def ead2marc_651(geo):
             subdiv_subfields = ""
             for subdiv in subdivisions:
                 subdiv_code = "x"  # default to general
-                subdiv_suggest_url = f"""https://id.loc.gov/authorities/subjects/suggest2?q={subdiv}"""
-                subdiv_response = loc_get(subdiv_suggest_url)
-                try:
-                    subdiv_data = subdiv_response.json()
-                except requests.exceptions.JSONDecodeError:
-                    subdiv_data = {}
-                for subdiv_hit in subdiv_data.get("hits", []):
-                    if subdiv_hit["aLabel"] == subdiv:
-                        subdiv_token = subdiv_hit["token"]
-                        subdiv_auth_url = lc_authority_url(subdiv_token)
-                        subdiv_auth_xml = loc_fetch_authority_xml(subdiv_auth_url)
-                        subdiv_auth_root = etree.fromstring(subdiv_auth_xml)
-                        if subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='185']"):
-                            subdiv_code = "v"  # form subdivision (explicit authority)
-                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='181']"):
-                            subdiv_code = "z"  # geographic subdivision (explicit authority)
-                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='182']"):
-                            subdiv_code = "y"  # chronological subdivision (explicit authority)
-                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='180']"):
-                            subdiv_code = "x"  # general subdivision (explicit authority)
-                        # Fallback: infer subdivision type from main-heading authority
-                        # tag when no explicit subdivision authority record exists.
-                        # Common for geographic names like "Israel" that only have a
-                        # 151 record (geographic name) not a separate 181 (geographic
-                        # subdivision). Without this fallback the classifier defaulted
-                        # to $x, producing "Music $x Israel" instead of "Music $z Israel".
-                        # (This portion of code was generated utilizing Claude Opus 4.7)
-                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='151']"):
-                            subdiv_code = "z"  # geographic name used as subdivision
-                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='155']"):
-                            subdiv_code = "v"  # genre/form term used as subdivision
-                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='148']"):
-                            subdiv_code = "y"  # chronological term used as subdivision
+                # Try subjects vocabulary first (covers free-floating subdivisions
+                # like "Theory" → 180, "Bibliography" → 185, "20th century" → 182).
+                # Fall back to names vocabulary for geographic names like "Israel",
+                # which LCSH stores in the names file (as 151 records) rather than
+                # as separate 181 subdivision records. Without the names fallback,
+                # geographic subdivisions defaulted to $x because the subjects
+                # suggest2 endpoint returned only "Israel--<more>" prefix-matched
+                # hits, never the bare "Israel" entry needed for the classifier.
+                # (This portion of code was generated utilizing Claude Opus 4.7)
+                subdiv_found = False
+                for vocab in ("subjects", "names"):
+                    subdiv_suggest_url = f"""https://id.loc.gov/authorities/{vocab}/suggest2?q={subdiv}"""
+                    subdiv_response = loc_get(subdiv_suggest_url)
+                    try:
+                        subdiv_data = subdiv_response.json()
+                    except requests.exceptions.JSONDecodeError:
+                        subdiv_data = {}
+                    for subdiv_hit in subdiv_data.get("hits", []):
+                        if subdiv_hit["aLabel"] == subdiv:
+                            subdiv_token = subdiv_hit["token"]
+                            subdiv_auth_url = lc_authority_url(subdiv_token)
+                            subdiv_auth_xml = loc_fetch_authority_xml(subdiv_auth_url)
+                            subdiv_auth_root = etree.fromstring(subdiv_auth_xml)
+                            if subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='185']"):
+                                subdiv_code = "v"  # form subdivision (explicit authority)
+                            elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='181']"):
+                                subdiv_code = "z"  # geographic subdivision (explicit authority)
+                            elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='182']"):
+                                subdiv_code = "y"  # chronological subdivision (explicit authority)
+                            elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='180']"):
+                                subdiv_code = "x"  # general subdivision (explicit authority)
+                            elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='151']"):
+                                subdiv_code = "z"  # geographic name used as subdivision
+                            elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='155']"):
+                                subdiv_code = "v"  # genre/form term used as subdivision
+                            elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='148']"):
+                                subdiv_code = "y"  # chronological term used as subdivision
+                            subdiv_found = True
+                            break
+                    if subdiv_found:
                         break
                 subdiv_subfields += f"""<subfield code="{subdiv_code}">{subdiv}</subfield>"""
             authority_651_str += subdiv_subfields
@@ -4162,39 +4183,46 @@ def ead2marc_655(gf):
             subdiv_subfields = ""
             for subdiv in subdivisions:
                 subdiv_code = "x"  # default to general
-                subdiv_suggest_url = f"""https://id.loc.gov/authorities/subjects/suggest2?q={subdiv}"""
-                subdiv_response = loc_get(subdiv_suggest_url)
-                try:
-                    subdiv_data = subdiv_response.json()
-                except requests.exceptions.JSONDecodeError:
-                    subdiv_data = {}
-                for subdiv_hit in subdiv_data.get("hits", []):
-                    if subdiv_hit["aLabel"] == subdiv:
-                        subdiv_token = subdiv_hit["token"]
-                        subdiv_auth_url = lc_authority_url(subdiv_token)
-                        subdiv_auth_xml = loc_fetch_authority_xml(subdiv_auth_url)
-                        subdiv_auth_root = etree.fromstring(subdiv_auth_xml)
-                        if subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='185']"):
-                            subdiv_code = "v"  # form subdivision (explicit authority)
-                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='181']"):
-                            subdiv_code = "z"  # geographic subdivision (explicit authority)
-                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='182']"):
-                            subdiv_code = "y"  # chronological subdivision (explicit authority)
-                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='180']"):
-                            subdiv_code = "x"  # general subdivision (explicit authority)
-                        # Fallback: infer subdivision type from main-heading authority
-                        # tag when no explicit subdivision authority record exists.
-                        # Common for geographic names like "Israel" that only have a
-                        # 151 record (geographic name) not a separate 181 (geographic
-                        # subdivision). Without this fallback the classifier defaulted
-                        # to $x, producing "Music $x Israel" instead of "Music $z Israel".
-                        # (This portion of code was generated utilizing Claude Opus 4.7)
-                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='151']"):
-                            subdiv_code = "z"  # geographic name used as subdivision
-                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='155']"):
-                            subdiv_code = "v"  # genre/form term used as subdivision
-                        elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='148']"):
-                            subdiv_code = "y"  # chronological term used as subdivision
+                # Try subjects vocabulary first (covers free-floating subdivisions
+                # like "Theory" → 180, "Bibliography" → 185, "20th century" → 182).
+                # Fall back to names vocabulary for geographic names like "Israel",
+                # which LCSH stores in the names file (as 151 records) rather than
+                # as separate 181 subdivision records. Without the names fallback,
+                # geographic subdivisions defaulted to $x because the subjects
+                # suggest2 endpoint returned only "Israel--<more>" prefix-matched
+                # hits, never the bare "Israel" entry needed for the classifier.
+                # (This portion of code was generated utilizing Claude Opus 4.7)
+                subdiv_found = False
+                for vocab in ("subjects", "names"):
+                    subdiv_suggest_url = f"""https://id.loc.gov/authorities/{vocab}/suggest2?q={subdiv}"""
+                    subdiv_response = loc_get(subdiv_suggest_url)
+                    try:
+                        subdiv_data = subdiv_response.json()
+                    except requests.exceptions.JSONDecodeError:
+                        subdiv_data = {}
+                    for subdiv_hit in subdiv_data.get("hits", []):
+                        if subdiv_hit["aLabel"] == subdiv:
+                            subdiv_token = subdiv_hit["token"]
+                            subdiv_auth_url = lc_authority_url(subdiv_token)
+                            subdiv_auth_xml = loc_fetch_authority_xml(subdiv_auth_url)
+                            subdiv_auth_root = etree.fromstring(subdiv_auth_xml)
+                            if subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='185']"):
+                                subdiv_code = "v"  # form subdivision (explicit authority)
+                            elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='181']"):
+                                subdiv_code = "z"  # geographic subdivision (explicit authority)
+                            elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='182']"):
+                                subdiv_code = "y"  # chronological subdivision (explicit authority)
+                            elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='180']"):
+                                subdiv_code = "x"  # general subdivision (explicit authority)
+                            elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='151']"):
+                                subdiv_code = "z"  # geographic name used as subdivision
+                            elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='155']"):
+                                subdiv_code = "v"  # genre/form term used as subdivision
+                            elif subdiv_auth_root.xpath(".//*[local-name()='datafield' and @tag='148']"):
+                                subdiv_code = "y"  # chronological term used as subdivision
+                            subdiv_found = True
+                            break
+                    if subdiv_found:
                         break
                 subdiv_subfields += f"""<subfield code="{subdiv_code}">{subdiv}</subfield>"""
             authority_655_str += subdiv_subfields

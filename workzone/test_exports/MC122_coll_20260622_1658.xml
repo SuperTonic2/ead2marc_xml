@@ -1,0 +1,177 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<marc:collection xmlns:marc="http://www.loc.gov/MARC21/slim" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.loc.gov/MARC21/slim http://www.loc.gov/standards/marcxml/schema/MARC21slim.xsd">
+  <marc:record>
+  <marc:leader>00000npc a22000007i 4500</marc:leader>
+  <marc:controlfield tag="008">260622i19292008xx                 mul d</marc:controlfield>
+  <marc:datafield tag="040" ind1=" " ind2=" ">
+    <marc:subfield code="a">IUL</marc:subfield>
+    <marc:subfield code="b">eng</marc:subfield>
+    <marc:subfield code="e">rda</marc:subfield>
+    <marc:subfield code="c">IUL</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="041" ind1=" " ind2=" ">
+    <marc:subfield code="a">eng</marc:subfield>
+    <marc:subfield code="a">heb</marc:subfield>
+    <marc:subfield code="a">lad</marc:subfield>
+    <marc:subfield code="a">yid</marc:subfield>
+    <marc:subfield code="a">spa</marc:subfield>
+    <marc:subfield code="a">fre</marc:subfield>
+    <marc:subfield code="a">ger</marc:subfield>
+    <marc:subfield code="a">lat</marc:subfield>
+    <marc:subfield code="a">ita</marc:subfield>
+    <marc:subfield code="a">rus</marc:subfield>
+    <marc:subfield code="a">geo</marc:subfield>
+    <marc:subfield code="a">gre</marc:subfield>
+    <marc:subfield code="a">jpn</marc:subfield>
+    <marc:subfield code="a">arm</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="049" ind1=" " ind2=" ">
+    <marc:subfield code="a">IULA</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="035" ind1=" " ind2=" ">
+    <marc:subfield code="a">(Inu-MuID)MC122</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="035" ind1=" " ind2=" ">
+    <marc:subfield code="a">(EADID)VAE4896</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="245" ind1="0" ind2="0">
+    <marc:subfield code="a">[Alice and Hans Tischler Collection of Israeli and Jewish Composers].</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="264" ind1=" " ind2="0">
+    <marc:subfield code="c">1929-2008</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="300" ind1=" " ind2=" ">
+    <marc:subfield code="a">22 Boxes</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="300" ind1=" " ind2=" ">
+    <marc:subfield code="a">141 CD(s)</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="300" ind1=" " ind2=" ">
+    <marc:subfield code="a">2 DVD(s)</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="336" ind1=" " ind2=" ">
+    <marc:subfield code="a">text</marc:subfield>
+    <marc:subfield code="b">txt</marc:subfield>
+    <marc:subfield code="2">rdacontent</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="336" ind1=" " ind2=" ">
+    <marc:subfield code="a">performed music</marc:subfield>
+    <marc:subfield code="b">prm</marc:subfield>
+    <marc:subfield code="2">rdacontent</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="336" ind1=" " ind2=" ">
+    <marc:subfield code="a">notated music</marc:subfield>
+    <marc:subfield code="b">ntm</marc:subfield>
+    <marc:subfield code="2">rdacontent</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="337" ind1=" " ind2=" ">
+    <marc:subfield code="a">unmediated</marc:subfield>
+    <marc:subfield code="b">n</marc:subfield>
+    <marc:subfield code="2">rdamedia</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="337" ind1=" " ind2=" ">
+    <marc:subfield code="a">audio</marc:subfield>
+    <marc:subfield code="b">s</marc:subfield>
+    <marc:subfield code="2">rdamedia</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="337" ind1=" " ind2=" ">
+    <marc:subfield code="a">video</marc:subfield>
+    <marc:subfield code="b">v</marc:subfield>
+    <marc:subfield code="2">rdamedia</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="338" ind1=" " ind2=" ">
+    <marc:subfield code="a">object</marc:subfield>
+    <marc:subfield code="b">nr</marc:subfield>
+    <marc:subfield code="2">rdacarrier</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="338" ind1=" " ind2=" ">
+    <marc:subfield code="a">audio disc</marc:subfield>
+    <marc:subfield code="b">sd</marc:subfield>
+    <marc:subfield code="2">rdacarrier</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="338" ind1=" " ind2=" ">
+    <marc:subfield code="a">videodisc</marc:subfield>
+    <marc:subfield code="b">vd</marc:subfield>
+    <marc:subfield code="2">rdacarrier</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="351" ind1=" " ind2=" ">
+    <marc:subfield code="a">This collection is arranged into the following series: I. PRINT MUSIC, II. SOUND RECORDINGS, III. PERSONAL EFFECTS.</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="500" ind1=" " ind2=" ">
+    <marc:subfield code="a">Location of resource: Cook Music Library (200 S Eagleson Ave, Bloomington, Indiana), Vault and Stacks.</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="500" ind1=" " ind2=" ">
+    <marc:subfield code="a">Processing Information: Preliminary inventorying and processing completed by Alice Tischler, date unknown. Rehousing completed by Indiana University Preservation Department, date unknown. Processing of sound recordings completed by Tarren Sexton in 2023. Processing of print music and personal effects completed by Sarah Helen Carter in 2023-2024.</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="506" ind1=" " ind2=" ">
+    <marc:subfield code="a">This collection is open for research. Retrieval requires advance notice. Please contact the Cook Music Library to access this collection.</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="520" ind1="3" ind2=" ">
+    <marc:subfield code="a">The Alice and Hans Tischler Collection of Israeli and Jewish Composers, 1929-2008, consists of printed and recorded music written by Jewish and Israeli composers and collected by music librarian Alice Tischler and musicology professor Hans Tischler as well as the Tischers' research notes and other personal effects.</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="520" ind1="2" ind2=" ">
+    <marc:subfield code="a">The PRINT MUSIC series consists of printed and photocopy manuscript sheet music written by Israeli and Jewish composers that were collected by Alice and Hans Tischler. The SOUND RECORDINGS series consists of CD and DVD recordings of works written by Israeli and Jewish composers that were collected by Alice and Hans Tischler. The PERSONAL EFFECTS series consists of personal effects of Alice and Hans Tischler that were included with the collection such as research notes, gifted preprint articles, and photographs.</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="524" ind1=" " ind2=" ">
+    <marc:subfield code="a">[Item], Alice and Hans Tischler Collection of Israeli and Jewish Composers, Collection MC122, Cook Music Library, Indiana University Bloomington, Indiana.</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="540" ind1=" " ind2=" ">
+    <marc:subfield code="a">The donor(s) of this collection have not transferred their copyrights for the materials to the William &amp; Gayle Cook Music Library. For more information, please contact the Music Library staff. The William &amp; Gayle Cook Music Library respects the intellectual property rights of others and does not claim any copyrights for non-university records, materials in the public domain, or materials for which we do not hold a Deed of Gift. Responsibility for the determination of the copyright status of these materials rests with those persons wishing to reuse the materials. Researchers are responsible for securing permission from copyright owners and any other rights holders for any reuse of these materials that extends beyond fair use or other statutory limitations. Digital reproductions of archival materials from the William &amp; Gayle Cook Music Library are made available for noncommercial educational and research purposes only. If you are the copyright holder for any of the digitized materials and have questions about its inclusion on our site, please contact the Cook Music Library staff for more details.</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="541" ind1="1" ind2=" ">
+    <marc:subfield code="a">Gift of Alice and Hans Tischler, circa 1980-2010.</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="544" ind1=" " ind2=" ">
+    <marc:subfield code="n">Tischler, Alice. A Descriptive Bibliography of Art Music by Israeli Composers. Harmonie Park Press, 2011. https://iucat.iu.edu/catalog/9627259.</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="545" ind1=" " ind2=" ">
+    <marc:subfield code="a">Hans Tischler was born in Vienna, Austria, in 1915. While he completed his conducting and composition studies at the Vienna State Music Academy, he also studied piano with Paul Wittgenstein. In 1937, he earned a PhD in musicology from the University of Vienna with a dissertation on harmony in the music of Gustav Mahler. A year later, Tischler fled Vienna to escape the Nazi takeover of Austria, settling in the United States. There he completed a second PhD in musicology at Yale University, writing a dissertation on The Motet in 13th-Century France that marked the beginning of a distinguished career researching and editing medieval music. He obtained American citizenship after serving in the US Army from 1943 to 1945. Hans was professor and music department chair at West Virginia Wesleyan College from 1945 to 1947, then moved to Roosevelt University in Chicago, spending one year as guest lecturer at the University of Chicago (1956–1957). He founded the Chicago chapter of the International Society for Contemporary Music in 1950 and served as its director for fifteen years. After his first wife passed away, Hans married Alice in 1958. In 1965, he joined the Musicology Department at Indiana University, where he taught for two decades, retiring in 1985. He was also a guest lecturer at Tel-Aviv University in 1972 and at Bar Ilan University in 1986. Hans made his greatest contributions as a scholar and editor of medieval music, writing The Style and Evolution of the Earliest Motets (1985), publishing more than sixty articles in the field, and creating editions that include The Montpellier Codex (4 volumes, 1978–1985), Chanter m'estuet: Songs of the Trouvères (with Samuel N. Rosenberg, 1981), The Earliest Motets (to c. 1270) (3 volumes, 1982), The Parisian Two-Part Organa (1988), Trouvère Lyrics with Melodies (15 volumes, 1997), The Songs of the Master Trouvère Gace Brulé (2001), Conductus and Contrafacta (2001), The Earliest Laude (2002), and The Earliest Polyphonic Art Music (2005). He also published over twenty articles on Mozart, Mahler, Hindemith, music of the nineteenth and twentieth centuries, and aesthetics and pedagogy of music, as well as textbooks on music appreciation (The Perceptive Music Listener, 1955) and harmony (Practical Harmony, 1964). Hans's productivity was astonishing, with many of his most important contributions appearing in the two decades after his retirement from teaching. His final publication was a book chapter in 2007, seventy years after his dissertation, making his one of the longest careers in his field. Hans's research and publications were funded by a Guggenheim fellowship, National Endowment for the Arts grants, and numerous other awards. He was a member of the American Musicological Society for over sixty years, giving his last presentation at the annual conference in 2009 when he was 94. He was also a member of the International Musicological Society and an honorary member of the Austrian Musicological Society. In Bloomington, Hans belonged to Congregation Beth Shalom and was a founding member of the Bloomington Chamber Music Society. Bloomington Mayor Mark Kruzan honored Hans's life and career by declaring his ninety-third birthday (January 18, 2008) Hans Tischler Day. Hans passed away on November 18, 2010, in Bloomington. Alice B. Tischler was born in Seattle, Washington, in 1935. She attended Roosevelt University, graduating with bachelor's (1958) and master's degrees in music (1960). In 1971, she earned her Master of Library Science degree from Indiana University. Alice worked as a music director for churches and synagogues, playing the organ, piano, and harpsichord. Prior to her time in Bloomington, she also served as a music literature instructor at the University of Chicago. At IU, she served as a music cataloguer, Research Director of the Black Music Center, and an academic advisor. Her scholarly achievements include A Descriptive Bibliography of Art Music by Israeli Composers (1988, rev. 2011); Fifteen Black American Composers: A Bibliography of Their Works (1981); Karel Boleslav Jirák: A Catalog of His Works (1975); research on historical performance and analysis of the organ fugues of Johann Sebastian Bach; and a recent book on wine in opera. Active in politics, Alice ran the Monroe County Democratic headquarters for many elections, served as treasurer of the Democratic Women's Club, and served as precinct committeewoman for Perry 3 for several years. Information retrieved from the information page for the Hans and Alice B. Tischler Scholarship/Fellowship. https://blogs.iu.edu/jsommusicology/funding/tischler-fellowship.</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="546" ind1=" " ind2=" ">
+    <marc:subfield code="a">English, Hebrew, Ladino, Yiddish, Spanish; Castilian, French, German, Latin, Italian, Russian, Georgian, Greek, Modern (1453-), Japanese, Armenian.</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="555" ind1=" " ind2=" ">
+    <marc:subfield code="a">Finding aid (available on Indiana University Archives Online) includes series and subseries listing of items in the collection including dates, descriptions, scope, and extent of the materials.</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="555" ind1=" " ind2=" ">
+    <marc:subfield code="a">Finding aid (work): </marc:subfield>
+    <marc:subfield code="u">https://archives.iu.edu/catalog/VAE4896</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="650" ind1=" " ind2="0">
+    <marc:subfield code="a">Music by Jewish Composers</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="650" ind1=" " ind2="0">
+    <marc:subfield code="a">Music</marc:subfield>
+    <marc:subfield code="x">Israel</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="600" ind1="1" ind2="0">
+    <marc:subfield code="a">Tischler, Alice,</marc:subfield>
+    <marc:subfield code="d">1935-,</marc:subfield>
+    <marc:subfield code="e">collector</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="600" ind1="1" ind2="4">
+    <marc:subfield code="a">Tischler, Hans,</marc:subfield>
+    <marc:subfield code="d">1915-2010,</marc:subfield>
+    <marc:subfield code="e">collector</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="690" ind1=" " ind2="7">
+    <marc:subfield code="a">Alice and Hans Tischler Collection.</marc:subfield>
+    <marc:subfield code="2">local</marc:subfield>
+    <marc:subfield code="5">Inu-MuID</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="700" ind1="1" ind2=" ">
+    <marc:subfield code="a">Tischler, Alice,</marc:subfield>
+    <marc:subfield code="d">1935-,</marc:subfield>
+    <marc:subfield code="e">collector</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="700" ind1="1" ind2=" ">
+    <marc:subfield code="a">Tischler, Hans,</marc:subfield>
+    <marc:subfield code="d">1915-2010,</marc:subfield>
+    <marc:subfield code="e">collector</marc:subfield>
+  </marc:datafield>
+  <marc:datafield tag="856" ind1="4" ind2="2">
+    <marc:subfield code="3">Finding aid</marc:subfield>
+    <marc:subfield code="u">https://archives.iu.edu/catalog/VAE4896</marc:subfield>
+  </marc:datafield>
+</marc:record>
+</marc:collection>
