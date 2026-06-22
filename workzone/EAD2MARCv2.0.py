@@ -59,11 +59,21 @@ from pathlib import Path
 # IF RUNNING IN TERMINAL Replace C:\path\to\your\ead3.xml with your filepath
 INPUT_FILE = r"C:\path\to\your\ead3.xml"
 
-# Toggle for VIAF fallback lookups. 
+# Toggle for VIAF fallback lookups.
     # BROWSER: Set FALSE for browser/CORS compatibility
     # TERMINAL: Set TRUE if the VIAF SRU search and cluster-fetch paths are desired.
 # (This portion of code was generated utilizing Claude Opus 4.7)
 VIAF_ENABLED = False
+
+# Toggle for aggregating descendant <genreform> elements when building collection-level 336s.
+    # When TRUE (default), processing a collection-level record also pulls genreform
+    # texts from all descendant items inside <dsc>, so collection 336 entries reflect
+    # the content types actually present across the collection (e.g., "notated music"
+    # because items have "Scores" genreforms). Performance impact is negligible —
+    # one in-memory DOM walk per collection record, no network requests added.
+    # Set FALSE to revert to "collection record processes only collection-level EAD".
+# (This portion of code was generated utilizing Claude Opus 4.7)
+AGGREGATE_DESCENDANT_GENREFORMS_FOR_COLLECTION = True
 
 # Rate-limited wrapper for requests to loc.gov 
 # Max 10 requests/minute
@@ -2148,6 +2158,17 @@ def ead2marc_336(raw):
     # (e.g., "Scores" → matches "score" key → "notated music").
     # (This portion of code was generated utilizing Claude Opus 4.7)
     for gft_elem in subj_gft_list:
+        gft_text = gft_elem.xpath("string()").strip()
+        if gft_text:
+            crtype_keycheck_list.append(gft_text)
+    # For collection-level records (only), also pull genreforms from descendant
+    # items so the rolled-up 336 reflects content types actually present in the
+    # collection. Gated on AGGREGATE_DESCENDANT_GENREFORMS_FOR_COLLECTION at the
+    # top of the file. descendant_gft_list is populated by the per-record setup
+    # in the convert loop (empty for non-collection-level records or when the
+    # flag is off, so this loop is a no-op in those cases).
+    # (This portion of code was generated utilizing Claude Opus 4.7)
+    for gft_elem in descendant_gft_list:
         gft_text = gft_elem.xpath("string()").strip()
         if gft_text:
             crtype_keycheck_list.append(gft_text)
@@ -5688,6 +5709,19 @@ if 'http://ead3.archivists.org/schema/' in root.tag:
         subj_gft_list = []
         subj_occ_list = []
         subj_topic_list = []
+
+        # Aggregate descendant <genreform> elements for collection-level records,
+        # so the rolled-up 336 reflects content types from items inside <dsc>.
+        # Empty for non-collection-level records or when the flag is off (see
+        # AGGREGATE_DESCENDANT_GENREFORMS_FOR_COLLECTION at the top of the file).
+        # (This portion of code was generated utilizing Claude Opus 4.7)
+        if (AGGREGATE_DESCENDANT_GENREFORMS_FOR_COLLECTION
+                and c0_raw.attrib.get('level') == 'collection'):
+            descendant_gft_list = root.xpath(
+                ".//*[local-name()='dsc']//*[local-name()='genreform']"
+            )
+        else:
+            descendant_gft_list = []
 
         ca_fetch = c0_raw.xpath(".//*[local-name()='controlaccess']")
         if ca_fetch:

@@ -1155,6 +1155,19 @@ async def convert_async(ead_bytes, parse_type, target, rec_range_str,
                     elif "subject" in ca_comp.tag: subj_topic_list.append(ca_comp)
                     elif "title" in ca_comp.tag: subj_titles_list.append(ca_comp)
 
+            # Aggregate descendant <genreform> elements for collection-level records,
+            # so the rolled-up 336 reflects content types from descendant items.
+            # Empty for non-collection-level records or when the script-side flag
+            # AGGREGATE_DESCENDANT_GENREFORMS_FOR_COLLECTION is off.
+            # (This portion of code was generated utilizing Claude Opus 4.7)
+            if (AGGREGATE_DESCENDANT_GENREFORMS_FOR_COLLECTION
+                    and c0_raw.attrib.get('level') == 'collection'):
+                descendant_gft_list = root.xpath(
+                    ".//*[local-name()='dsc']//*[local-name()='genreform']"
+                )
+            else:
+                descendant_gft_list = []
+
             # Publish all the script-expected globals
             for _n in (
                 'c0_raw','vaid_clean','names_list',
@@ -1164,6 +1177,7 @@ async def convert_async(ead_bytes, parse_type, target, rec_range_str,
                 'subjs_list','subj_persnames_list','subj_corpnames_list','subj_famnames_list',
                 'subj_titles_list','subj_geognames_list','subj_function_list','subj_gft_list',
                 'subj_occ_list','subj_topic_list',
+                'descendant_gft_list',
             ):
                 setattr(builtins, _n, locals()[_n])
 

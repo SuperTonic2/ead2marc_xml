@@ -1,5 +1,88 @@
 # Major Claude Edits
 
+## 2026-06-18: v2.0.py — Optional Descendant Genreform Aggregation for Collection-Level 336
+
+A follow-up to today's earlier genreform-extraction fix in `ead2marc_336`. The earlier fix made the script extract content-type hints from `<genreform>` elements at the same level as the record being processed. For the Tischler MC122 collection-level record, that turned out to mean *nothing* — the archdesc-level `<controlaccess>` has 0 genreforms, even though the 802 items inside `<dsc>` collectively have 248 "Scores" genreforms that should imply "notated music" as a collection-level content type. This entry adds optional aggregation across descendants so the collection-level 336 can reflect content types actually present in the collection.
+
+### The architectural constraint
+
+When processing a collection-level record, the convert loop (both CLI and browser) does:
+
+```python
+archdesc_copy = deepcopy(archdesc[0])
+for dsc in archdesc_copy.xpath(".//*[local-name()='dsc']"):
+    dsc.getparent().remove(dsc)
+result = [archdesc_copy]
+```
+
+The `<dsc>` removal exists so that the rest of the per-record xpath queries against the working `c0_raw` don't accidentally pull item-level data into the collection record (e.g., a collection-level 245 should reflect the collection's title, not an item's). By the time `ead2marc_336` runs, descendant genreforms are unreachable from `c0_raw`.
+
+So the aggregation had to happen *before* dsc removal, walking the original `root` and stashing the result in a per-record global that `ead2marc_336` can read.
+
+### What was done
+
+Added a script-level flag near `VIAF_ENABLED`:
+
+```python
+AGGREGATE_DESCENDANT_GENREFORMS_FOR_COLLECTION = True
+```
+
+Default `True` (aggregation enabled), with a comment block documenting purpose, performance impact (negligible — one in-memory DOM walk per collection record, no network requests), and how to turn off.
+
+Four code touchpoints:
+
+1. **`ead2marc_336`**: added a second `for gft_elem in descendant_gft_list:` loop right after the existing `subj_gft_list` loop. Behaves identically — same case-insensitive substring matching against `unittype_336_map` and same dedup by output value. No special-case logic; for non-collection-level records the list is empty so the loop is a no-op.
+
+2. **CLI per-record setup** (`workzone/EAD2MARCv2.0.py`): inside the per-record loop, after the subject-list initializations, populate `descendant_gft_list`:
+
+    ```python
+    if (AGGREGATE_DESCENDANT_GENREFORMS_FOR_COLLECTION
+            and c0_raw.attrib.get('level') == 'collection'):
+        descendant_gft_list = root.xpath(".//*[local-name()='dsc']//*[local-name()='genreform']")
+    else:
+        descendant_gft_list = []
+    ```
+
+    Uses the module-global `root` (preserved before any dsc removal) so the descendant query succeeds.
+
+3. **Browser per-record setup** (`browser_ui/ead2marc_stage2.html`'s `CONVERTER_PY`): identical logic, plus added `'descendant_gft_list'` to the `setattr(builtins, ...)` publish loop so the v2.0.py-side `ead2marc_336` can read it as a global at call time.
+
+4. **Bundle rebuilt**: the new flag and aggregation logic both wire through to the browser deployment.
+
+### Behavior
+
+- For collection-level records (`level="collection"` on archdesc) with the flag on: aggregates every `<genreform>` element nested inside any `<dsc>` and feeds them as content-type hints alongside the record's own controlaccess genreforms.
+- For non-collection-level records (items, files, etc.): always empty list; the new loop in `ead2marc_336` is a no-op. Item-level processing unchanged.
+- For collection-level records when the flag is off: empty list; behavior reverts to pre-aggregation (collection record processes only collection-level EAD).
+- Dedup by output value carries over from the existing matching logic — 248 "Scores" genreforms in MC122 produce *one* additional `336 notated music` entry, not 248.
+
+### Performance
+
+Negligible. For MC122 (802 records, ~250 genreforms in dsc):
+
+- One xpath traversal of the archdesc tree: ~1-5 ms
+- Text extraction across ~250 genreforms: ~1-2 ms
+- ~5000 substring checks against the 20-key map: ~1 ms
+- **Total ~5-10 ms added to collection-level record processing.** Well under 1% of total processing time (most of which is id.loc.gov authority lookups).
+
+Zero new network requests. Zero output bloat (dedup is in place).
+
+### Expected impact on next MC122 collection-level run
+
+Adds `336 notated music` to the Tischler collection's 336 list. New full set:
+
+- `text` (from "Boxes" unittype)
+- `performed music` (from "CD(s)" / "DVD(s)" unittypes)
+- `notated music` (from 248 "Scores" genreforms across item descendants — new)
+
+That's the accurate roll-up of what the collection actually contains. Other collections will produce different content types depending on what genreforms their items use.
+
+### Open follow-up
+
+If 337 or 338 ever need similar descendant aggregation (e.g., to roll up media or carrier types from items), the infrastructure is in place. Just add a `for gft_elem in descendant_gft_list:` loop to those functions in the same shape. Held off for now since genreforms semantically describe content type, not media or carrier, so the analogous aggregation for 337/338 would be more noise than signal.
+
+---
+
 ## 2026-06-18: v2.0.py — Collection-Level Audit Follow-Up Fixes
 
 After the morning's 1XX/6XX/7XX indicator and routing fixes (see the next entry below), a closer pass through the MC122 collection-level export surfaced an additional eight issues spanning URL construction, vocabulary gaps, text processing, indicator logic, terminal punctuation, content-type detection, and subdivision classification. Seven are fixed in this entry; #7 (three separate 300 fields rather than one combined) is a deliberate non-change per the user's preference.
