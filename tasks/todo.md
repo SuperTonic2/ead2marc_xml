@@ -5,6 +5,8 @@
 - [ ] Check collection-level test exports and debug any issues
 - [ ] Run full item-level test export and send to L to review
 - [ ] Write more to-do’s
+  
+- [ ] Create option to toggle/customize 246 fields
 
 ## Backlog
 

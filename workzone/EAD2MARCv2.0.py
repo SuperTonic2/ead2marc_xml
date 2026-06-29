@@ -505,7 +505,7 @@ def ead2marc_050(unitid_raw):
     # Indicator 2 is constant (4)
 
     # SUBFIELDS
-    #Checks for number of cutters and constrcuts $a content and $b content accordingly
+    # Checks for number of cutters and constrcuts $a content and $b content accordingly
     cn = pycn.callnumber(unitid_str)
     class_str = str(cn.classification)
     class_ns = class_str.replace(" ", "")
@@ -519,11 +519,11 @@ def ead2marc_050(unitid_raw):
         all_items = ""
     first_cutter = "." + str(cn.cutters[0])
     if len(cn.cutters) <= 1:
-        #Subfield content construction for call numbers with 1 cutter
+        # Subfield content construction for call numbers with 1 cutter
         a_content = class_ns
         b_content = first_cutter + all_eds + all_items
     else:
-        #Subfield content construction for call numbers with 2+ cutters
+        # Subfield content construction for call numbers with 2+ cutters
         second_on_cutters_raw = cn.cutters[1:]
         second_on_cutters_list = []
         for cutter in second_on_cutters_raw:
@@ -5485,7 +5485,7 @@ def ead2marc_008(raw):
 
 
 def ead2marc_rec(raw):
-    '''Runs all MARC field functions in notebook order and assembles a complete record'''
+    '''Runs all MARC field functions order and assembles a complete record'''
     
     # Comments
     oclc_comment = oclc_check(raw)

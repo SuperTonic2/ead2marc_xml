@@ -198,11 +198,17 @@ Commit and push both files. `docs/index.html` is what updates the live site; kee
 - [id.loc.gov Authorities](https://id.loc.gov/)
 - [ArchivesSpace](https://archivesspace.org/)
 - [Pyodide](https://pyodide.org/)
-- [marc_ao](https://github.com/hudmol/as_marcao)
+
+## Similar Projects
+
+- [CarnegieHall/archivesspace-importguide](https://github.com/CarnegieHall/archivesspace-importguide)
+- [hudmol/as_marcao](https://github.com/hudmol/as_marcao)
+- [JTC-librarian/EAD_to_marc](https://github.com/JTC-librarian/EAD_to_marc)
+- [uwlib-cams/EAD2MARC2Wikidata](https://github.com/uwlib-cams/EAD2MARC2Wikidata)
 
 ## License
 
-[MIT](https://opensource.org/license/mit)
+[MIT License](https://opensource.org/license/mit)
 
 Copyright 2026 Sarah Helen Carter
 
